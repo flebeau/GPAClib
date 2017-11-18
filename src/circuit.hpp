@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <queue>
 #include <boost/numeric/odeint.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include "utils.hpp"
 #include "gate.hpp"
+#include "gnuplot-iostream/gnuplot-iostream.h"
 
 namespace GPAClib {
 
@@ -105,8 +107,8 @@ public:
 				const ConstantGate<T>* gate = circuit.asConstantGate(g);
 				addConstantGate(g, gate->Constant(), validate);
 			}
-			if (circuit.isIntGate(g) && circuit.asIntGate(g)->Y() == "t" && circuit.getInitValues().count(g) > 0)
-				setInitValue(g, circuit.getInitValues().at(g));
+			if (circuit.isIntGate(g) && circuit.asIntGate(g)->Y() == "t" && circuit.getValues().count(g) > 0)
+				setInitValue(g, circuit.getValues().at(g));
 		}
 	}
 	
@@ -388,25 +390,32 @@ public:
 	GPAC<T> &simplify() {
 		if (finalized)
 			return *this;
-		/* First identify different types of gates */
+		/* Sort inputs of binary gates so that they always are in the same order */
+		for (const auto &g : gates) {
+			if (isBinaryGate(g.first)) {
+				BinaryGate<T> *gate = asBinaryGate(g.first);
+				if (gate->X() >= gate->Y()) {
+					std::string temp = gate->X();
+					gate->X() = gate->Y();
+					gate->Y() = temp;
+				}
+			}
+		}
+		
+		/* Identify different types of gates */
 		std::vector<std::string> constant_names;
+		std::vector<std::string> addition_names;
+		std::vector<std::string> product_names;
+		std::vector<std::string> integration_names;
+		
 		for (const auto &g : gates) {
 			if (isConstantGate(g.first))
 				constant_names.push_back(g.first);
-		}
-		std::vector<std::string> addition_names;
-		for (const auto &g : gates) {
-			if (isAddGate(g.first))
+			else if (isAddGate(g.first))
 				addition_names.push_back(g.first);
-		}
-		std::vector<std::string> product_names;
-		for (const auto &g : gates) {
-			if (isProductGate(g.first))
+			else if (isProductGate(g.first))
 				product_names.push_back(g.first);
-		}
-		std::vector<std::string> integration_names;
-		for (const auto &g : gates) {
-			if (isIntGate(g.first))
+			else if (isIntGate(g.first))
 				integration_names.push_back(g.first);
 		}
 		
@@ -760,7 +769,7 @@ public:
 			finalized = false;
 		values[gate_name] = value;
 	}
-	const std::map<std::string, T> &getInitValues() const {
+	const std::map<std::string, T> &getValues() const {
 		return values;
 	}
 	
@@ -826,7 +835,6 @@ public:
 				}
 			}
 		}
-		
 		// Check that all gates have values
 		for (const auto &g : gates) {
 			if (values.count(g.first) == 0) {
@@ -861,6 +869,46 @@ public:
 			y[i] = values[int_gates[i]];
 		boost::numeric::odeint::runge_kutta4<std::vector<T> > stepper;
 		boost::numeric::odeint::integrate_const(stepper, std::bind(&GPAC<T>::ODE, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), y, a, b , dt);
+		return *this;
+	}
+	
+	class OutputObserver {
+	public:
+		OutputObserver(const GPAC<T> &c, std::vector<T> &v, std::vector<T> &t) : circuit(c), values(v), times(t) {}
+		
+		void operator()(const std::vector<T> &y, double t) {
+			values.push_back(circuit.getValues().at(circuit.Output()));
+			times.push_back(t);
+		}
+	private:
+		const GPAC<T> &circuit;
+		std::vector<T> &values;
+		std::vector<T> &times;
+	};
+	
+	GPAC<T> &SimulateGnuplot(T a, T b, T dt, std::string pdf_file = "") {
+		if (!finalized) {
+			CircuitErrorMessage() << "Cannot simulate a circuit if it is not finalized!";
+			exit(EXIT_FAILURE);
+		}
+		initValues();
+		std::vector<T> y(int_gates.size());
+		for (unsigned i = 0; i<y.size(); ++i)
+			y[i] = values[int_gates[i]];
+		boost::numeric::odeint::runge_kutta4<std::vector<T> > stepper;
+		std::vector<T> values;
+		std::vector<T> times;
+		computeValues(a);
+		boost::numeric::odeint::integrate_const(stepper, std::bind(&GPAC<T>::ODE, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), y, a, b , dt, OutputObserver(*this, values, times));
+		Gnuplot gp;
+		if (pdf_file != "")
+			gp << "set terminal pdf\n"
+			   << "set output '" << pdf_file << "'\n";
+		gp << "set xrange [" << a << ":" << b << "]\n"
+		   << "set key left top\n"
+		   << "plot '-' with lines title '" <<  circuit_name << "'\n";
+		gp.send1d(boost::make_tuple(times, values));
+		gp.close();
 		return *this;
 	}
 	

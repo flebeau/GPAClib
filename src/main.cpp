@@ -25,8 +25,12 @@ int main() {
 	// circuit.setOutput("A1");
 	// circuit.validate();
 	
-	GPAClib::GPAC<double> circuit = GPAClib::Sin<double>();
-	std::cout << circuit.finalize().Simulate(0., 1., 0.01) << "\n";
+	GPAClib::GPAC<double> circuit = GPAClib::Sin<double>()(GPAClib::PowerPower2<double>(1));
+	circuit.rename("sin(t²)");
+	std::cout << circuit.normalize().simplify() << "\n";
+	circuit.setInitValue("_3", 0.);
+	circuit.setInitValue("_7", 0.5);
+	circuit.finalize().SimulateGnuplot(0., 5., 0.01, "simulation.pdf");
 	
 	return 0;
 }
