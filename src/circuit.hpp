@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <set>
+#include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <queue>
@@ -107,7 +108,8 @@ public:
 				const ConstantGate<T>* gate = circuit.asConstantGate(g);
 				addConstantGate(g, gate->Constant(), validate);
 			}
-			if (circuit.isIntGate(g) && circuit.asIntGate(g)->Y() == "t" && circuit.getValues().count(g) > 0)
+			//if (circuit.isIntGate(g) && circuit.asIntGate(g)->Y() == "t" && circuit.getValues().count(g) > 0)
+			if (circuit.isIntGate(g) && circuit.getValues().count(g) > 0)
 				setInitValue(g, circuit.getValues().at(g));
 		}
 	}
@@ -274,9 +276,8 @@ public:
 		const GPAC &circuit;
 	};
 	
-	
 	/* Normalization: making sure that every second input of integration gates is t*/
-	GPAC<T> &normalize() {
+	GPAC<T> &normalize(bool guess_init_value = true) {
 		if (finalized)
 			return *this;
 		/* First make a list of all integration gates with no t inputs */
@@ -321,9 +322,13 @@ public:
 				std::string i1 = getNewGateName();
 				std::string i2 = getNewGateName();
 				addIntGate(i1, p1, v, false);
+				if (guess_init_value && getValues().count(gate_name) > 0)
+					setInitValue(i1, 0.5 * getValues().at(gate_name));
 				if (v != "t")
 					pb_int_gates.push(i1);
 				addIntGate(i2, p2, u, false);
+				if (guess_init_value && getValues().count(gate_name) > 0)
+					setInitValue(i2, 0.5 * getValues().at(gate_name));
 				if (u != "t")
 					pb_int_gates.push(i2);
 				gates[gate_name].reset(new AddGate<T>(i1,i2));
@@ -338,9 +343,13 @@ public:
 				std::string i1 = getNewGateName();
 				std::string i2 = getNewGateName();
 				addIntGate(i1, w, u, false);
+				if (guess_init_value && getValues().count(gate_name) > 0)
+					setInitValue(i1, 0.5 * getValues().at(gate_name));
 				if (u != "t")
 					pb_int_gates.push(i1);
 				addIntGate(i2, w, v, false);
+				if (guess_init_value && getValues().count(gate_name) > 0)
+					setInitValue(i2, 0.5 * getValues().at(gate_name));
 				if (v != "t")
 					pb_int_gates.push(i2);
 				gates[gate_name].reset(new AddGate<T>(i1,i2));
@@ -392,7 +401,7 @@ public:
 			return *this;
 		/* Sort inputs of binary gates so that they always are in the same order */
 		for (const auto &g : gates) {
-			if (isBinaryGate(g.first)) {
+			if (isAddGate(g.first) || isProductGate(g.first)) {
 				BinaryGate<T> *gate = asBinaryGate(g.first);
 				if (gate->X() >= gate->Y()) {
 					std::string temp = gate->X();
@@ -761,8 +770,9 @@ public:
 	/* Simulation methods */
 	
 	void setInitValue(std::string gate_name, T value) {
-		if (!isIntGate(gate_name) || asIntGate(gate_name)->Y() != "t") {
-			CircuitErrorMessage() << "Can only set initial value for valid integration gate!";
+		//if (!isIntGate(gate_name) || asIntGate(gate_name)->Y() != "t") {
+		if (!isIntGate(gate_name)) {
+			CircuitErrorMessage() << "Can only set initial value for integration gate!";
 			return;
 		}
 		if (values[gate_name] != value)
@@ -985,7 +995,7 @@ GPAC<T> Constant(T constant) {
 	res.setOutput("c");
 	return res;
 }
-	
+
 template<typename T>
 GPAC<T> Identity() {
 	GPAC<T> res("Id", true, true);
@@ -1065,7 +1075,30 @@ GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 	return res;
 }
 
-
-
+/* Loading set of circuits from file
+   See README for file specification */
+template<typename T>
+GPAC<T> LoadFromFile(std::string filename) {
+	std::ifstream circuit_spec;
+	circuit_spec.open(filename);
+	std::string line;
+	unsigned n_line = 0;
+	// We read the file line by line
+	while (getline(circuit_spec, line)) {
+		++n_line;
+		if (line.size() == 0 || line[0] == '#') // Skip empty lines and commentary lines
+			continue;
+		if (line[0] == 'L') { // Handle light specification
+			std::stringstream s(line.substr(1));
+			if (1) {
+				ErrorMessage() << "parsing error at line " << n_line << " of file " << filename;
+				exit(EXIT_FAILURE);
+			}
+			continue;
+		}
+		
+	}
+}
+	
 }
 #endif
