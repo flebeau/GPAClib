@@ -1073,32 +1073,6 @@ GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 			res += coeffs[i]; 
 	}
 	return res;
-}
-
-/* Loading set of circuits from file
-   See README for file specification */
-template<typename T>
-GPAC<T> LoadFromFile(std::string filename) {
-	std::ifstream circuit_spec;
-	circuit_spec.open(filename);
-	std::string line;
-	unsigned n_line = 0;
-	// We read the file line by line
-	while (getline(circuit_spec, line)) {
-		++n_line;
-		if (line.size() == 0 || line[0] == '#') // Skip empty lines and commentary lines
-			continue;
-		if (line[0] == 'L') { // Handle light specification
-			std::stringstream s(line.substr(1));
-			if (1) {
-				ErrorMessage() << "parsing error at line " << n_line << " of file " << filename;
-				exit(EXIT_FAILURE);
-			}
-			continue;
-		}
-		
-	}
-}
-	
+}	
 }
 #endif
