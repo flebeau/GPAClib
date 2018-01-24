@@ -1,3 +1,12 @@
+/*!
+ * \file circuit.hpp
+ * \brief Main file of GPAClib containing the GPAC class
+ * \author Fabrice L.
+ * 
+ * Header file containing the GPAC class and useful circuits.
+ */
+
+
 #ifndef CIRCUIT_HPP_
 #define CIRCUIT_HPP_
 
@@ -16,10 +25,19 @@
 #include "gate.hpp"
 #include "gnuplot-iostream/gnuplot-iostream.h"
 
+/*! \namespace GPAClib
+ * 
+ * Namespace containing the library and the main class
+ */
 namespace GPAClib {
 
 using GatesMap = std::map<std::string, std::unique_ptr<Gate> >;
 
+/*! \class CircuitConstIterator
+ * \brief Iterator on Circuit class
+ * 
+ * Iterator on the names of the gates of a circuit.
+ */
 class CircuitConstIterator : public GatesMap::const_iterator {
 public:
 	CircuitConstIterator() : GatesMap::const_iterator() {}
@@ -29,11 +47,21 @@ public:
 	std::string operator*() {return GatesMap::const_iterator::operator*().first;}
 };
 
-
+/*! \class Circuit
+ * \brief Abstract class representing a circuit
+ *
+ * Base class for defining circuits, which have a name and gates. One of the gates is the output gate.
+ */
 class Circuit {
 public:
+	/*! \brief Circuit constructor
+	 * \param name Name of the circuit
+	 */
 	Circuit(std::string name = "") : circuit_name(name), gates(), output_gate("") {}
 	
+	/*! \brief Accessing the gates
+	 * \return A reference to the gates of the circuit.
+	 */
 	const GatesMap &Gates() const {return gates;}
 	
 	CircuitConstIterator begin() const {return CircuitConstIterator(gates.cbegin());}
@@ -44,19 +72,32 @@ public:
 	
 	const std::string &Name() const {return circuit_name;}
 	void rename(std::string name) {circuit_name = name;}
+	
+	/*! \brief Custom error message for circuits
+	 * \return An instance of class ErrorMessage specifying the name of the circuit
+	 */
 	ErrorMessage CircuitErrorMessage() const {
 		return ErrorMessage("circuit " + circuit_name);
 	}
+	/*! \brief Custom warning message for circuits
+	 * \return An instance of class WarningMessage specifying the name of the circuit
+	 */
 	WarningMessage CircuitWarningMessage() const {
 		return WarningMessage("circuit " + circuit_name);
 	}
 	
 protected:
-	std::string circuit_name;
-    GatesMap gates;
-	std::string output_gate;
+	std::string circuit_name; /*!< Name of the circuit */
+    GatesMap gates; /*!< Map storing gates by their name */
+	std::string output_gate; /*!< Name of the output gate of the circuit */
 };
 
+/*! \class GPAC<T>
+ * \brief Main class implementing General Purpose Analog Circuits and simulating them using ODEINT
+ * \tparam T Type of the values (floating point number)
+ *
+ * 
+ */
 template<typename T>
 class GPAC : public Circuit {
 public:
@@ -213,7 +254,7 @@ public:
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()));
 	}
 	
-	std::string toString() const {
+	std::string toString(bool show_all_values = false) const {
 		std::stringstream res("");
 		std::string prefix_line = "";
 		if (circuit_name != "") {
@@ -221,15 +262,21 @@ public:
 			prefix_line = "\t";
 		}
 		for (const auto &g : gates) {
-			res << prefix_line << g.first;
-			if (g.first == output_gate) {
-				res << "*";
-			}
-			res << ": "  << g.second->toString();
+			if (g.first == output_gate) // Skip output gate to print it last
+				continue;
+			res << prefix_line << g.first
+				<< ": "  << g.second->toString();
 			if (values.count(g.first))
-				res << " | " << values.at(g.first);
+				if (show_all_values || isIntGate(g.first))
+					res << " | " << values.at(g.first);
 			res << "\n";
 		}
+		res << prefix_line << output_gate
+			<< ": " << gates.at(output_gate)->toString();
+		if (values.count(output_gate))
+				if (show_all_values || isIntGate(output_gate))
+					res << " | " << values.at(output_gate);
+		res << "\n;\n";
 		return res.str();
 	}
 	
@@ -390,7 +437,7 @@ public:
 			CircuitErrorMessage() << "Output gate has not been set!";
 			exit(EXIT_FAILURE);
 		}
-		else if (gates.count(output_gate) == 0) {
+		else if (output_gate != "t" && gates.count(output_gate) == 0) {
 			CircuitErrorMessage() << "Output gate is invalid!";
 			exit(EXIT_FAILURE);
 		}
@@ -585,13 +632,13 @@ public:
 		}
 	}
 	
-	GPAC operator+(const GPAC<T> &circuit) const {
+	GPAC<T> operator+(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't add two circuits with no defined output!";
 			exit(EXIT_FAILURE);
 		}
 		
-		GPAC result(*this);
+		GPAC<T> result(*this);
 		result.ensureUniqueNames(circuit);
 		std::string old_output = result.Output();
 		result.copyInto(circuit, false); // copy circuit in result
@@ -599,7 +646,7 @@ public:
 		result.addAddGate(result.Output(), old_output, circuit.Output(), false);
 		return result;
 	}
-	GPAC &operator+=(const GPAC<T> &circuit) {
+	GPAC<T> &operator+=(const GPAC<T> &circuit) {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't add two circuits with no defined output!";
 			exit(EXIT_FAILURE);
@@ -612,13 +659,13 @@ public:
 		addAddGate(Output(), old_output, circuit.Output(), false);
 		return *this;
 	}
-	GPAC operator*(const GPAC<T> &circuit) const {
+	GPAC<T> operator*(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't multiply two circuits with no defined output!";
 			exit(EXIT_FAILURE);
 		}
 		
-		GPAC result(*this);
+		GPAC<T> result(*this);
 		result.ensureUniqueNames(circuit);
 		std::string old_output = result.Output();
 		result.copyInto(circuit, false); // copy circuit in result
@@ -626,7 +673,7 @@ public:
 		result.addProductGate(result.Output(), old_output, circuit.Output(), false);
 		return result;
 	}
-	GPAC &operator*=(const GPAC<T> &circuit) {
+	GPAC<T> &operator*=(const GPAC<T> &circuit) {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't multiply two circuits with no defined output!";
 			exit(EXIT_FAILURE);
@@ -639,7 +686,7 @@ public:
 		addProductGate(Output(), old_output, circuit.Output(), false);
 		return *this;
 	}
-	GPAC operator()(const GPAC<T> &circuit) const {
+	GPAC<T> operator()(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't multiply two circuits with no defined output!";
 			exit(EXIT_FAILURE);
@@ -650,7 +697,7 @@ public:
 		if (output_gate == "t")
 			return circuit;
 		
-		GPAC result(circuit);
+		GPAC<T> result(circuit);
 		result.ensureUniqueNames(*this);
 		std::string old_output = result.Output();
 		result.copyInto(*this, false); // copy circuit in result
@@ -1016,8 +1063,8 @@ template<typename T>
 GPAC<T> Sin() {
 	GPAC<T> res("Sin", true, true);
 	res
-		("sin_c-1", -1)
-		("sin_P","x","sin","sin_c-1")
+		("sin_c", -1)
+		("sin_P","x","sin","sin_c")
 		("cos","I","sin_P","t")
 		("sin","I","cos","t");
 	res.setOutput("sin");
@@ -1030,8 +1077,8 @@ template<typename T>
 GPAC<T> Cos() {
 	GPAC<T> res("Cos", true, true);
 	res
-		("cos_c-1", -1)
-		("cos_P","x","sin","cos_c-1")
+		("cos_c", -1)
+		("cos_P","x","sin","cos_c")
 		("cos","I","cos_P","t")
 		("sin","I","cos","t");
 	res.setOutput("cos");

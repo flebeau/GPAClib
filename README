@@ -2,40 +2,39 @@
 #  GPAClib  #
 #############
 
-
-
 Circuit specification format
 ============================
 Lines beginning with # are ignored (comment lines).
 
 First way to define a circuit: by specifying gates. Syntax:
 
-    Circuit <circuit_name>
-	    <gate_name> ....
-	    <gate_name> ....
-	    <gate_name> ....
+    Circuit <circuit_name>:
+	    <gate_name>: ....
+	    <gate_name>: ....
+	    <gate_name>: ....
 	;
 
 Circuit names cannot contain spaces and should not be named as builtin circuits provided in the following.
 Moreover, "t" is a reserved name and circuit names should not be confusable with floating point numbers.
 
 The gate specification is the following:
-  - for integration gate -> <gate_name> \int <integrated> d(<variable>) | <initial_value>
-  - for product gate -> <gate_name> <operand1> x <operand2>
-  - for product gate (alternative syntax) -> <gate_name> <operand1> * <operand2>
-  - for addition gate -> <gate_name> <operand1> + <operand2>
-  - for constant gate -> <gate_name> <value>
+  - for integration gate: int <integrated> d(<variable>) | <initial_value>
+  - for product gate (alternative syntax): <operand1> * <operand2>
+  - for addition gate: <operand1> + <operand2>
+  - for constant gate: <value>
 
 Operands are names of gates defined (before or after) in the same circuit or "t". Gate names cannot be empty, start with underscore and "t" is reserved.
 
 The second way to define a circuit is by combination of previously defined circuits. Syntax:
 
-    Circuit <circuit_name> = ....
+    Circuit <circuit_name> = <expression>
 
-where the possible operations are:
-  - addition of circuits: <operand1> + <operand2>
-  - product of circuits: <operand1> x <operand2>
-  - product of circuits (alternative syntax): <operand1> * <operand2>
-  - composition of circuits: <operand1> o <operand2>
+where expressions are defined with the following grammar:
+    expr ::= identifier | (expr + expr) | (expr * expr) | (expr @ expr)
 
-Operands are names of previously defined circuits, or name of builtin circuits, or "t" or a floating point constant.
+The @ operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or "t". 
+  
+List of builtin circuits:
+  - Exp: exponential
+  - Sin/Cos: sinus and cosinus
+  - Id: identity (same as "t")

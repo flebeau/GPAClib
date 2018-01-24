@@ -80,7 +80,7 @@ public:
     ProductGate(std::string x_name, std::string y_name_) : BinaryGate<T>(x_name,y_name_) {}
 	
 	virtual std::string toString() const {
-		return BinaryGate<T>::x_name + " x " + BinaryGate<T>::y_name;
+		return BinaryGate<T>::x_name + " * " + BinaryGate<T>::y_name;
 	}
 	
 	virtual T operator()(T x, T y) const {

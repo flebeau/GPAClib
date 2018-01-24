@@ -14,6 +14,11 @@ int main(int argc, char *argv[]) {
 	// circuit.finalize().SimulateGnuplot(0., 20., 0.001, "simulation.pdf");
 	
 	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(argv[1]);
+	
+	if (circuit.Output() == "") {
+		std::cerr << "Quitting after error...\n" << std::endl;
+		return EXIT_FAILURE;
+	}
 	std::cout << circuit.normalize().simplify() << "\n";
 	circuit.finalize().SimulateGnuplot(0., 10., 0.001, "simulation.pdf");
 	
