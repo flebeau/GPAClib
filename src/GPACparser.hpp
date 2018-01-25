@@ -11,7 +11,7 @@
 #include <string>
 
 #include "utils.hpp"
-#include "circuit.hpp"
+#include "GPAC.hpp"
 
 namespace GPAClib {
 namespace qi = boost::spirit::qi;
@@ -28,7 +28,7 @@ struct custom_lexer : lex::lexer<Lexer>
 		, rpar (')')
 		, identifier    ("[a-zA-Z_][a-zA-Z0-9_]*")
         , white_space   ("[ \\t\\n]+")
-        , value ("[1-9][0-9]*|[-+]?[0-9]*\\.?[0-9]+")
+        , value ("[1-9][0-9]*|[-]?[0-9]*\\.?[0-9]+")
 		, op_add ("\\+")
 		, op_prod ("\\*")
 		, op_int ("int")
@@ -146,7 +146,8 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			(tok.lpar >> op >> tok.rpar) [qi::_val = spi::_2]
 			| (tok.identifier) [qi::_val = spi::_1]
 			| (tok.value) [qi::_val = phx::bind(&ToString<T>, spi::_1),
-				           phx::ref(circuits)[qi::_val] = phx::bind(&GPAClib::Constant<T>, spi::_1)]
+				           phx::ref(circuits)[qi::_val] = phx::bind(&GPAClib::Constant<T>, spi::_1),
+						   phx::bind(&GPAC<T>::rename, phx::ref(circuits)[qi::_val], qi::_val)]
 		;
 		
 		op = ((expression >> tok.op_add >> expression) 
