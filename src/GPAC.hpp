@@ -3,7 +3,7 @@
  * \brief Main file of GPAClib containing the GPAC class
  * \author Fabrice L.
  *
- * Header file containing the GPAC class and useful instances.
+ * Header file containing the GPAC class and useful predefined analog circuits.
  */
 
 #ifndef GPAC_HPP_
@@ -26,18 +26,33 @@
 #include "gnuplot-iostream/gnuplot-iostream.h"
 
 namespace GPAClib {
-/*! \class GPAC<T>
- * \brief Main class implementing General Purpose Analog Circuits and simulating them using ODEINT
+/*! \brief Main class implementing analog circuits and simulating them using Odeint
  * \tparam T Type of the values (floating point number)
  *
- * 
+ * Implements an analog circuit, which is a combination of addition, product, constant and 
+ * integration gates. A special gate called `t` is used to refer to the variable (the "time").
+ *
+ * Operators +, * and parenthesis are overloaded so that it is easy to add, multiply, and compose circuits.
+ *
+ * Methods are provided in order to validate a circuit and to simulate it using Boost Odeint.
+ * The result of the simulation can be exported to a pdf file using Gnuplot.
  */
 template<typename T>
 class GPAC : public Circuit {
 public:
-	/* Constructors */
+	/*! \brief Constructing an analog circuit with a name
+	 * \param name Name of the circuit (optional)
+	 * \param validation_ If true, the circuit is validated at every modification (default: true)
+	 * \param block_ If true, the circuit is a common circuit, not a user-specific one (default: false)
+	 */
 	GPAC(std::string name = "", bool validation_ = true, bool block_ = false) : Circuit(name), validation(validation_), block(block_), finalized(false) {}
 	
+	/*! \brief Copy constructor 
+	 * 
+	 * Duplicate the input dircuit by copying the gates and setting the same output gate, validation
+	 * option, block option. If the input circuit is a block circuit (not user-specific), ensure that
+	 * the name of the obtained circuit is different from the input one.
+	 */
 	GPAC(const GPAC<T> &circuit) {
 		copyInto(circuit, false);
 		if (!circuit.Block() && circuit.Name() != "")
@@ -50,6 +65,7 @@ public:
 		block = circuit.Block();
 	}
 	
+	/// Copy through '=' operator
 	GPAC<T> &operator=(const GPAC<T> &circuit) {
 		gates.clear();
 		copyInto(circuit, false);
@@ -64,7 +80,13 @@ public:
 		return *this;
 	}
 	
-	// Copy all gates of circuit in current circuit
+	/*! \brief Copy all gates of circuit in current circuit
+	 * \param circuit Source circuit whose gates are to be copied
+	 * \param validate If true, all gates imported are validated (default: true)
+	 *
+	 * Import all gates from input circuit in the current circuit. Also import the initial
+	 * values of integration gates of the input circuit.
+	 */
 	void copyInto(const GPAC<T> &circuit, bool validate = true) {
 		for (const auto &g : circuit) {
 			if (circuit.isAddGate(g)) {
@@ -83,12 +105,16 @@ public:
 				const ConstantGate<T>* gate = circuit.asConstantGate(g);
 				addConstantGate(g, gate->Constant(), validate);
 			}
-			//if (circuit.isIntGate(g) && circuit.asIntGate(g)->Y() == "t" && circuit.getValues().count(g) > 0)
 			if (circuit.isIntGate(g) && circuit.getValues().count(g) > 0)
 				setInitValue(g, circuit.getValues().at(g));
 		}
 	}
 	
+	/*! \brief Validation of gate names
+	 * \param gate_name Name of the gate to be added
+	 * \param forbid_underscore If true, gate names starting with underscore are rejeted
+	 *
+	 */
 	void validateGateName(std::string gate_name, bool forbid_underscore = true) const {
 		if (gate_name.size() == 0) {
 			CircuitErrorMessage() << "Gate name cannot be of length 0!";
@@ -103,6 +129,15 @@ public:
 			exit(EXIT_FAILURE);
 		}
 	}
+	/*! \brief Adding an addition gate
+	 * \param gate_name Name of the gate to be added
+	 * \param x Name of the first input gate
+	 * \param y Name of the second input gate
+	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 *
+	 * Add an addition gate to the circuit with specified name and inputs. If there is already a gate
+	 * with the given name, a warning is issued and the existing gate is overwritten.
+	 */
     void addAddGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
 		if (validation && validate)
@@ -114,7 +149,17 @@ public:
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new AddGate<T>(x,y));
 	}
-	void addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	
+    /*! \brief Adding a product gate
+	 * \param gate_name Name of the gate to be added
+	 * \param x Name of the first input gate
+	 * \param y Name of the second input gate
+	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 *
+	 * Add a product gate to the circuit with specified name and inputs. If there is already a gate
+	 * with the given name, a warning is issued and the existing gate is overwritten.
+	 */
+    void addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
 		if (validation && validate)
 			validateGateName(gate_name);
@@ -125,7 +170,17 @@ public:
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ProductGate<T>(x,y));
 	}
-	void addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	
+	/*! \brief Adding an integration gate
+	 * \param gate_name Name of the gate to be added
+	 * \param x Name of the integrand gate name
+	 * \param y Name of the gate with respect to which is integration is done
+	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 *
+	 * Add an integration to the circuit with specified name and inputs. If there is already a gate
+	 * with the given name, a warning is issued and the existing gate is overwritten.
+	 */
+    void addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
 		if (validation && validate)
 			validateGateName(gate_name);
@@ -141,7 +196,16 @@ public:
 			gates[gate_name] = std::unique_ptr<Gate>(new IntGate<T>(x,y));
 		}
 	}
-	void addConstantGate(std::string gate_name, T value, bool validate = true) {
+	
+	/*! \brief Adding a constant gate
+	 * \param gate_name Name of the gate to be added
+	 * \param value Value of the gate
+	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 *
+	 * Add a constant gate to the circuit with specified name and value. If there is already a gate
+	 * with the given name, a warning is issued and the existing gate is overwritten.
+	 */
+    void addConstantGate(std::string gate_name, T value, bool validate = true) {
 		finalized = false;
 		if (validation && validate)
 			validateGateName(gate_name);
@@ -152,42 +216,73 @@ public:
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ConstantGate<T>(value));
 	}
+	
+    /// Returns the `block` attribute value
 	bool Block() const {return block;}
+	/// Returns the `validation` attribute value
 	bool Validation() const {return validation;}
+	/// Returns true if there is a specific gate in the circuit
 	bool has(std::string gate_name) const {
 		return (gates.count(gate_name) != 0);
 	}
+	
+	/// \brief Returns true if the target gate is an addition gate
+	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isAddGate(std::string gate_name) const {
 		return (dynamic_cast<AddGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	/// \brief Returns true if the target gate is a product gate
+	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isProductGate(std::string gate_name) const {
 		return (dynamic_cast<ProductGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	/// \brief Returns true if the target gate is an integration gate
+	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isIntGate(std::string gate_name) const {
 		return (dynamic_cast<IntGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	/// \brief Returns true if the target gate is a constant gate
+	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isConstantGate(std::string gate_name) const {
 		return (dynamic_cast<ConstantGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	/// \brief Returns true if the target gate is a binary gate
+	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isBinaryGate(std::string gate_name) const {
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	
+    /// \brief Returns a AddGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be an addition gate.
 	const AddGate<T>* asAddGate(std::string gate_name) const {
 		return (dynamic_cast<AddGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a ProductGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a product gate.
 	const ProductGate<T>* asProductGate(std::string gate_name) const {
 		return (dynamic_cast<ProductGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a IntGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be an integration gate.
 	const IntGate<T>* asIntGate(std::string gate_name) const {
 		return (dynamic_cast<IntGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a ConstantGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a constant gate.
 	const ConstantGate<T>* asConstantGate(std::string gate_name) const {
 		return (dynamic_cast<ConstantGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a BinaryGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a binary gate.
 	const BinaryGate<T>* asBinaryGate(std::string gate_name) const {
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()));
 	}
 	
+	/*! \brief Export the circuit into a string
+	 * \param show_all_values If set to true, show the numerical values of all gates, not just integration gates (default: false)
+	 *
+	 * The output format for a circuit matches the specification format (see README for more details)
+	 */
 	std::string toString(bool show_all_values = false) const {
 		std::stringstream res("");
 		std::string prefix_line = "";
@@ -214,6 +309,18 @@ public:
 		return res.str();
 	}
 	
+	/*! \brief Parenthesis operator for adding binary gates
+	 * \param gate_name Name of the gate to be added
+	 * \param op Symbol of the operator
+	 * \param x First input name
+	 * \param y Second input name
+	 * 
+	 * User-friendly parenthesis operator for adding binary gates to a circuit. Symbols for describing
+	 * operation are:
+	 *   - `a`, `A`, `+` for addition
+	 *   - `p`, `P`, `x`, `X`, `*` for product
+	 *   - `i`, `I` for integration.
+	 */
 	GPAC<T> &operator()(std::string gate_name, std::string op, std::string x, std::string y) {
 		if (op == "a" || op == "A" || op == "+")
 			addAddGate(gate_name, x, y);
@@ -226,15 +333,27 @@ public:
 		}
 		return *this;
 	}
+	/*! \brief Parenthesis operator for adding constant gates
+	 * \param gate_name Name of the gate to be added
+	 * \param value Value of the constant gate to be added
+	 */
 	GPAC<T> &operator()(std::string gate_name, T value) {
 		addConstantGate(gate_name, value);
 		return *this;
 	}
 	
+	/*! \brief Comparator class for sorting integration gates
+	 *
+	 * When normalizing a circuit, some integration gates are replaced with larger subcircuits.
+	 * This comparator class is used to sort integration gates so that the one leading to smaller
+	 * subcircuits are treated first.
+	 */
 	class CompareIntGate {
 	public:
 		CompareIntGate(const GPAC &circuit_) : circuit(circuit_) {}
 		
+		/// Treat intgration gates with product gates as second input before the one with
+		/// addition gates as second input
 		bool operator()(const std::string &x, const std::string &y) {
 			const IntGate<T> *gate1 = circuit.asIntGate(x);
 			const IntGate<T> *gate2 = circuit.asIntGate(y);
@@ -254,10 +373,21 @@ public:
 			return x < y;
 		}
 	private:
-		const GPAC &circuit;
+		const GPAC &circuit; /*!< Reference to the circuit in which the gates to be compared are */
 	};
 	
-	/* Normalization: making sure that every second input of integration gates is t*/
+	/*! \brief Normalization of a circuit
+	 * \param guess_init_value Try to propagate initial values of integration gates when introducing new integration gates (default: true)
+	 * 
+	 * In a circuit, integration gates for which the second input are not variable `t` are 
+	 * problematic, especially for simulating. Fortunately, it is possible to modify the circuit
+	 * by introducing new gates in order to ensure that all integration gates have `t` as their second
+	 * input. This process always terminates.
+	 *
+	 * In order to do this normalization, we maintain a priority queue of the problematic integration
+	 * gates (sorted with the CompareIntGate comparator class). We then treat each integration gate in
+	 * the queue until the queue is empty (some steps can increase the size of the queue).
+	 */
 	GPAC<T> &normalize(bool guess_init_value = true) {
 		if (finalized)
 			return *this;
@@ -345,6 +475,14 @@ public:
 		return *this;
 	}
 	
+	/*! \brief Validation of a circuit
+	 * 
+	 * Checks if the circuit is valid. More specifically, it checks:
+	 *   - if the names of all gates are valid
+	 *   - if the inputs of the binary gates are either gates present in the circuit or `t`
+	 *   - if the integration gates have their second input equal to `t` (normalized circuit)
+	 *   - if the output gate has been set to a valid gate in the circuit.
+	 */
 	GPAC<T> &validate() {
 		if (finalized)
 			return *this;
@@ -377,6 +515,15 @@ public:
 		}
 		return *this;
 	}
+	
+	/*! \brief Simplify the circuit as much as possible
+	 *
+	 * This method first delete duplicate constant gates, i.e. multiple constant gates with
+	 * the same value are merged into one.
+	 *
+	 * Then it recursively tries to delete binary gates that have the same inputs, by merging them
+	 * and trying again until a fixed point is reached.
+	 */
 	GPAC<T> &simplify() {
 		if (finalized)
 			return *this;
@@ -415,7 +562,7 @@ public:
 		std::sort(product_names.begin(), product_names.end(), PreferUserDefinedNames());
 		std::sort(integration_names.begin(), integration_names.end(), PreferUserDefinedNames());
 		
-		/* First delete constants */
+		/* First delete duplicate constants */
 		std::map<std::string, std::string> new_names;
 		for (const auto &name : constant_names)
 			new_names[name] = name;
@@ -445,7 +592,7 @@ public:
 			}
 		}
 		
-		/* Recursively delete all equal product, addition and integration gates  */
+		/* Recursively delete duplicate product, addition and integration gates  */
 		new_names.clear();
 		for (const auto &name : addition_names)
 			new_names[name] = name;
@@ -523,14 +670,13 @@ public:
 				}
 			}
 		}
-		
-		
+				
 		return *this;
 	}
 	
-	/* Operators for constructing new circuits */
+	/* === Operators for constructing new circuits === */
 	
-	// Function that rename gates in current circuit so that set of names of circuit and the other circuit are disjoint
+	/// Rename gates in current circuit so that there is no name in common with the input circuit
 	void ensureUniqueNames(const GPAC<T> &circuit) {
 		std::map<std::string, std::string> new_names;
 		for (const auto &g : gates) {
@@ -566,6 +712,7 @@ public:
 		}
 	}
 	
+	/// Returns a new circuit which represents the addition of the two circuits
 	GPAC<T> operator+(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't add two circuits with no defined output!";
@@ -580,6 +727,7 @@ public:
 		result.addAddGate(result.Output(), old_output, circuit.Output(), false);
 		return result;
 	}
+	/// Import the input circuit into the current one and add an addition gate between the two
 	GPAC<T> &operator+=(const GPAC<T> &circuit) {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't add two circuits with no defined output!";
@@ -593,6 +741,7 @@ public:
 		addAddGate(Output(), old_output, circuit.Output(), false);
 		return *this;
 	}
+	/// Returns a new circuit which represents the product of the two circuits
 	GPAC<T> operator*(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't multiply two circuits with no defined output!";
@@ -607,6 +756,7 @@ public:
 		result.addProductGate(result.Output(), old_output, circuit.Output(), false);
 		return result;
 	}
+	/// Import the input circuit into the current one and add a product gate between the two
 	GPAC<T> &operator*=(const GPAC<T> &circuit) {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't multiply two circuits with no defined output!";
@@ -620,6 +770,7 @@ public:
 		addProductGate(Output(), old_output, circuit.Output(), false);
 		return *this;
 	}
+	/// Returns a new circuit which represents the composition of the two circuits
 	GPAC<T> operator()(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
 			CircuitErrorMessage() << "Can't compose two circuits with no defined output!";
@@ -650,6 +801,7 @@ public:
 		result.normalize();
 		return result;
 	}
+	/// Returns a new circuit which represents the addition of the circuit with a constant
 	GPAC<T> operator+(T constant) const {
 		GPAC<T> res(*this);
 		bool found = false;
@@ -675,6 +827,7 @@ public:
 		}
 		return res;
 	}
+	/// Add a constant gate (if it is not already in the circuit) and add an addition gate
 	GPAC<T> &operator+=(T constant) {
 		bool found = false;
 		// Check if constant is already in circuit
@@ -699,6 +852,7 @@ public:
 		}
 		return *this;
 	}
+	/// Returns a new circuit which represents the product of the circuit with a constant
 	GPAC<T> operator*(T constant) const {
 		GPAC<T> res(*this);
 		bool found = false;
@@ -724,6 +878,7 @@ public:
 		}
 		return res;
 	}
+	/// Add a constant gate (if it is not already in the circuit) and add a product gate
 	GPAC<T> &operator*=(T constant) {
 		bool found = false;
 		// Check if constant is already in circuit
@@ -749,10 +904,13 @@ public:
 		return *this;
 	}
 		
-	/* Simulation methods */
+	/* ===== Simulation methods =====*/
 	
+	/*! \brief Set the init value of an integration gate
+	 * \param gate_name Name of the integration gate to set the value
+	 * \param value Value to be associated with the gate
+	 */
 	void setInitValue(std::string gate_name, T value) {
-		//if (!isIntGate(gate_name) || asIntGate(gate_name)->Y() != "t") {
 		if (!isIntGate(gate_name)) {
 			CircuitErrorMessage() << "Can only set initial value for integration gate!";
 			return;
@@ -761,10 +919,21 @@ public:
 			finalized = false;
 		values[gate_name] = value;
 	}
+	/// Returns the values associated to the names of the gates
 	const std::map<std::string, T> &getValues() const {
 		return values;
 	}
 	
+	/*! \brief Ensures that the circuit is finalized, i.e. that everything is set for simulating
+	 * 
+	 * A finalized circuit is a circuit that is normalized, simplified and validated. Moreover, it
+	 * means that some data useful for simulating has been precomputed, like the list of integration
+	 * gates.
+	 *
+	 * The `finalized` attribute of the circuit is set to true at the end of this method. Any 
+	 * operation that modify the circuit set this attribute to false. If the `finalized` attribute is
+	 * set to true, this method does nothing: the circuit is already finalized!
+	 */
 	GPAC<T> &finalize() {
 		if (finalized)
 			return *this;
@@ -791,15 +960,16 @@ public:
 		finalized = true;
 		return *this;
 	}
+	
+	/// Set all gates different from integration gate or constant gates to "not computed"
 	void resetNonIntValues() {
-		// Set all gates different from integration gate or constant gates to "not computed"
 		for (const auto &g : gates) {
 			if (!isIntGate(g.first) && !isConstantGate(g.first) && values.count(g.first) > 0)
 				values.erase(g.first);
 		}
 	}
+    /// Set initial values for constants gates
 	GPAC<T> &initValues() {
-		// Initial values for constants gates
 		for (const auto &g : gates) {
 			if (isConstantGate(g.first)) {
 				values[g.first] = asConstantGate(g.first)->Constant();
@@ -807,6 +977,14 @@ public:
 		}
 		return *this;
 	}
+	/*! \brief Compute the values of all the gates other than integration gates
+	 * \param t_0 Value for time `t`
+	 * \pre Circuit should be finalized.
+	 *
+	 * Compute the values of all gates starting from constant gates and integration gates values.
+	 * It recursively compute values of all gates for which the values of the two inputs are known,
+	 * until all gates have values.
+	 */
 	GPAC<T> &computeValues(T t_0 = 0) {		
 		values["t"] = t_0;
 		

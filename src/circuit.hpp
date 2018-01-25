@@ -1,9 +1,7 @@
 /*!
  * \file circuit.hpp
- * \brief File of GPAClib containing the GPAC class
+ * \brief File containing the base class for defining circuits
  * \author Fabrice L.
- * 
- * Header file containing the GPAC class and useful circuits.
  */
 
 
@@ -23,10 +21,10 @@
  */
 namespace GPAClib {
 
+/// Polymorphism-friendly container type for storing gates by names
 using GatesMap = std::map<std::string, std::unique_ptr<Gate> >;
 
-/*! \class CircuitConstIterator
- * \brief Iterator on Circuit class
+/*! \brief Iterator on Circuit class
  * 
  * Iterator on the names of the gates of a circuit.
  */
@@ -39,8 +37,7 @@ public:
 	std::string operator*() {return GatesMap::const_iterator::operator*().first;}
 };
 
-/*! \class Circuit
- * \brief Abstract class representing a circuit
+/*! \brief Abstract class representing a circuit
  *
  * Base class for defining circuits, which have a name and gates. One of the gates is the output gate.
  */
@@ -48,21 +45,30 @@ class Circuit {
 public:
 	/*! \brief Circuit constructor
 	 * \param name Name of the circuit
+	 *
+	 * Generates a new empty circuit with the optional given name.
 	 */
 	Circuit(std::string name = "") : circuit_name(name), gates(), output_gate("") {}
 	
 	/*! \brief Accessing the gates
-	 * \return A reference to the gates of the circuit.
+	 * \return A reference to the gates of the circuit stored by names.
 	 */
 	const GatesMap &Gates() const {return gates;}
 	
+	/*! \brief Iterating on names of gates
+	 * \return An iterator on the names of the gates of the circuit.
+	 */
 	CircuitConstIterator begin() const {return CircuitConstIterator(gates.cbegin());}
 	CircuitConstIterator end() const {return CircuitConstIterator(gates.cend());}
 	
+	/// Retrieving name of the output gate
 	const std::string &Output() const {return output_gate;}
+	/// Changing the name of the output gate
 	void setOutput(std::string output) {output_gate = output;}
 	
+	/// Retieving name of the circuit
 	const std::string &Name() const {return circuit_name;}
+	/// Renaming circuit
 	void rename(std::string name) {circuit_name = name;}
 	
 	/*! \brief Custom error message for circuits

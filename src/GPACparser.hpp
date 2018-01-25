@@ -1,7 +1,5 @@
-#ifndef PARSER_HPP_
-#define PARSER_HPP_
-
-#define BOOST_SPIRIT_DEBUG
+#ifndef GPACPARSER_HPP_
+#define GPACPARSER_HPP_
 
 #include <boost/config/warning_disable.hpp>
 #include <boost/spirit/include/qi.hpp>
@@ -18,9 +16,9 @@ namespace qi = boost::spirit::qi;
 namespace lex = boost::spirit::lex;
 
 template <typename T, typename Lexer>
-struct custom_lexer : lex::lexer<Lexer>
+struct GPACLexer : lex::lexer<Lexer>
 {
-    custom_lexer()
+    GPACLexer()
         : 
 		  circuit ("Circuit")
 		, d ("d")
@@ -182,7 +180,7 @@ GPAC<T> LoadFromFile(std::string filename)
 	typedef std::string::iterator base_iterator_type;
     typedef lex::lexertl::token<base_iterator_type> token_type;
 	typedef lex::lexertl::lexer<token_type> lexer_type;
-	typedef custom_lexer<T, lexer_type> Lexer;
+	typedef GPACLexer<T, lexer_type> Lexer;
 	typedef typename Lexer::iterator_type iterator_type;
 	typedef GPACParser<T, iterator_type, typename Lexer::lexer_def> Parser;
 	
