@@ -1,0 +1,9 @@
+Circuit expsin:
+	_2: cos x exp
+	cos: int sin_P d( t ) | 1
+	sin: int cos d( t ) | 0
+	sin_P: sin x sin_c
+	sin_c: -1
+	exp: int _2 d( t ) | 1
+	_1: exp + t
+;

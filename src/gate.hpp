@@ -1,3 +1,9 @@
+/*!
+ * \file gate.hpp
+ * \brief File containing the classes representing the different gate types
+ * \author Fabrice L.
+ */
+
 #ifndef GATE_HPP_
 #define GATE_HPP_
 

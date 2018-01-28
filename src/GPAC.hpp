@@ -252,27 +252,27 @@ public:
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
 	
-    /// \brief Returns a AddGate pointer to the specified gate
+    /// \brief Returns a AddGate constant pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be an addition gate.
 	const AddGate<T>* asAddGate(std::string gate_name) const {
 		return (dynamic_cast<AddGate<T>*>(gates.at(gate_name).get()));
 	}
-	/// \brief Returns a ProductGate pointer to the specified gate
+	/// \brief Returns a ProductGate constant pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be a product gate.
 	const ProductGate<T>* asProductGate(std::string gate_name) const {
 		return (dynamic_cast<ProductGate<T>*>(gates.at(gate_name).get()));
 	}
-	/// \brief Returns a IntGate pointer to the specified gate
+	/// \brief Returns a IntGate constant pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be an integration gate.
 	const IntGate<T>* asIntGate(std::string gate_name) const {
 		return (dynamic_cast<IntGate<T>*>(gates.at(gate_name).get()));
 	}
-	/// \brief Returns a ConstantGate pointer to the specified gate
+	/// \brief Returns a ConstantGate constant pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be a constant gate.
 	const ConstantGate<T>* asConstantGate(std::string gate_name) const {
 		return (dynamic_cast<ConstantGate<T>*>(gates.at(gate_name).get()));
 	}
-	/// \brief Returns a BinaryGate pointer to the specified gate
+	/// \brief Returns a BinaryGate constant pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be a binary gate.
 	const BinaryGate<T>* asBinaryGate(std::string gate_name) const {
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()));
@@ -1015,7 +1015,11 @@ public:
 		return *this;
 	}
 	
-	// Step for simulating the circuit, vectors should be of the same size as int_gates
+	/*! \brief Step for simulating the circuit
+	 * \param y Values of integration gates computed so far
+	 * \param dydt Values of integration gates after propagating the previous values in the circuit
+	 * \pre Vectors should be of the same size as int_gates
+	 */
 	void ODE(std::vector<T> &y, std::vector<T> &dydt, const double t) {
 		resetNonIntValues();
 		for (unsigned i = 0; i<y.size(); ++i) {
@@ -1027,7 +1031,14 @@ public:
 			dydt[i] = values[gate->X()];
 		}
 	}
-	
+	/*! \brief Simulating the circuit with Odeint
+	 * \param a Initial value for t
+	 * \param b Last value of t
+	 * \param dt Step size
+	 *
+	 * Simulates the circuit using Odeint implementation of the Runge-Kutta method with
+	 * fixed step size.
+	 */
 	GPAC<T> &Simulate(T a, T b, T dt) {
 		if (!finalized) {
 			CircuitErrorMessage() << "Cannot simulate a circuit if it is not finalized!";
@@ -1042,20 +1053,34 @@ public:
 		return *this;
 	}
 	
+	/// Observer used for storing all computed values of the output gate during the simulation
 	class OutputObserver {
 	public:
 		OutputObserver(const GPAC<T> &c, std::vector<T> &v, std::vector<T> &t) : circuit(c), values(v), times(t) {}
 		
+		/*! \brief Store times and values of output gate
+		 * \param y Values computed by Odeint
+		 * \param t Current time of the simulation
+		 */
 		void operator()(const std::vector<T> &y, double t) {
 			values.push_back(circuit.getValues().at(circuit.Output()));
 			times.push_back(t);
 		}
 	private:
-		const GPAC<T> &circuit;
-		std::vector<T> &values;
-		std::vector<T> &times;
+		const GPAC<T> &circuit; /*!< Reference of the circuit we are simulating */
+		std::vector<T> &values; /*!< Stores values of the output gate */
+		std::vector<T> &times; /*!< Stores the times of the simulation */
 	};
 	
+	/*! \brief Simulates the circuit and export results in Gnuplot
+	 * \param a Initial value for t
+	 * \param b Last value of t
+	 * \param dt Step size
+	 * \param pdf_file If specified, export the results to this file
+	 *
+	 * Circuit is simulated using OutputObserver and the data obtained is then exported to Gnuplot
+	 * using the Gnuplot-iostream library.
+	 */
 	GPAC<T> &SimulateGnuplot(T a, T b, T dt, std::string pdf_file = "") {
 		if (!finalized) {
 			CircuitErrorMessage() << "Cannot simulate a circuit if it is not finalized!";
@@ -1083,31 +1108,45 @@ public:
 	}
 	
 private:
-	static unsigned new_gate_id;
-	bool validation;
-	bool block;
-	bool finalized;
-	std::map<std::string, T> values; // Numerical values of the outputs of the gates
-	std::vector<std::string> int_gates; // Valid integration gates
+	static unsigned new_gate_id; ///< Static variable used for generating unique gate names
+	bool validation; ///< Option for activating verification at each modification of the circuit
+	bool block; ///< Specifies if the circuit is a builtin circuit (not user-defined)
+	bool finalized; ///< Boolean indicating if the circuit is ready to be simulated
+	std::map<std::string, T> values; ///< Numerical values of the outputs of the gates
+	std::vector<std::string> int_gates; ///< Valid integration gates
 	
+	/// Returns a new unique gate number
 	unsigned getNewGateId() const {return ++new_gate_id;}
+	/// Returns a new unique gate name (number preceeded with an underscore)
 	std::string getNewGateName() const {return "_" + boost::lexical_cast<std::string>(++new_gate_id) ;}
+	
+	/// \brief Returns a AddGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be an addition gate.
 	AddGate<T>* asAddGate(std::string gate_name)  {
 		return (dynamic_cast<AddGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a ProductGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a product gate.
 	ProductGate<T>* asProductGate(std::string gate_name)  {
 		return (dynamic_cast<ProductGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns an IntGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be an integration gate.
 	IntGate<T>* asIntGate(std::string gate_name)  {
 		return (dynamic_cast<IntGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a ConstantGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a constant gate.
 	ConstantGate<T>* asConstantGate(std::string gate_name)  {
 		return (dynamic_cast<ConstantGate<T>*>(gates.at(gate_name).get()));
 	}
+	/// \brief Returns a BinaryGate pointer to the specified gate
+	/// \pre A gate named `gate_name` must exist in the circuit and must be a binary gate.
 	BinaryGate<T>* asBinaryGate(std::string gate_name)  {
 		return (dynamic_cast<BinaryGate<T>*>(gates.at(gate_name).get()));
 	}
 	
+	/// Comparator class used for keeping user-defined names when merging gates
 	class PreferUserDefinedNames {
 	public:
 		bool operator()(std::string x, std::string y) {
@@ -1122,18 +1161,21 @@ private:
 	};
 };
 
-/* Extern operators */
+/* ===== Extern operators ===== */
 
+/// Operator for addition with a constant on the right
 template<typename T>
 GPAC<T> operator+(T constant, const GPAC<T> &circuit) {
 	return circuit + constant;
 }
 
+/// Operator for multiplication with a constant on the right
 template<typename T>
 GPAC<T> operator*(T constant, const GPAC<T> &circuit) {
 	return circuit * constant;
 }
 
+/// Stream operator for printing circuits
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const GPAC<T> &circuit) {
 	os << circuit.toString();
@@ -1145,9 +1187,11 @@ std::ostream &operator<<(std::ostream &os, const GPAC<T> &circuit) {
 template<typename T>
 unsigned GPAC<T>::new_gate_id = 0;
 	
-/* Some useful basic circuits */
+/* ===== Some useful builtin circuits ===== */
 	
-// Note: use this only as a standalone circuit! Otherwise use operators between constants and circuits
+/*! \brief %Circuit composed of only one constant gate of the given value
+ * \remark Use this only as a standalone circuit! Otherwise use operators between constants and circuits.
+ */
 template<typename T>
 GPAC<T> Constant(T constant) {
 	GPAC<T> res("Const", true, true);
@@ -1156,6 +1200,7 @@ GPAC<T> Constant(T constant) {
 	return res;
 }
 
+/// %Circuit computing identity function
 template<typename T>
 GPAC<T> Identity() {
 	GPAC<T> res("Id", true, true);
@@ -1163,6 +1208,7 @@ GPAC<T> Identity() {
 	return res;
 }
 
+/// %Circuit computing exponential function
 template<typename T> 
 GPAC<T> Exp() {
 	GPAC<T> res("Exp", true, true);
@@ -1171,7 +1217,8 @@ GPAC<T> Exp() {
 	res.setInitValue("exp", 1);
 	return res;
 }
-	
+
+/// %Circuit computing sinus function
 template<typename T> 
 GPAC<T> Sin() {
 	GPAC<T> res("Sin", true, true);
@@ -1186,6 +1233,7 @@ GPAC<T> Sin() {
 	return res;
 }
 
+/// %Circuit computing cosinus function
 template<typename T>
 GPAC<T> Cos() {
 	GPAC<T> res("Cos", true, true);
@@ -1200,6 +1248,7 @@ GPAC<T> Cos() {
 	return res;
 }
 
+/// %Circuit computing \f$t^{2^n} \f$
 template<typename T>
 GPAC<T> PowerPower2(unsigned n) {
 	GPAC<T> res("PP2" + boost::lexical_cast<std::string>(n), true, true);
@@ -1217,7 +1266,9 @@ GPAC<T> PowerPower2(unsigned n) {
 	return res;
 }
 
-// Circuit computing a polynomial a_0 + a_1 t + ... using Horner's method
+/*! \brief %Circuit computing a polynomial using Horner's method
+ * \param coeffs Coefficients given in the increasing degree order.
+ */
 template<typename T>
 GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 	if (coeffs.size() == 0)
@@ -1234,7 +1285,7 @@ GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 	}
 	return res;
 }	
-	
+
 }
 
 #endif

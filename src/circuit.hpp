@@ -17,7 +17,7 @@
 
 /*! \namespace GPAClib
  * 
- * Namespace containing the library and the main class
+ * \brief Namespace of the library
  */
 namespace GPAClib {
 
@@ -85,9 +85,9 @@ public:
 	}
 	
 protected:
-	std::string circuit_name; /*!< Name of the circuit */
-    GatesMap gates; /*!< Map storing gates by their name */
-	std::string output_gate; /*!< Name of the output gate of the circuit */
+	std::string circuit_name; ///< Name of the circuit
+    GatesMap gates; ///< Map storing gates by their name
+	std::string output_gate; ///< Name of the output gate of the circuit
 };
 
 }

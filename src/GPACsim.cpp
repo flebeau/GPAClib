@@ -1,3 +1,9 @@
+/*!
+ * \file GPACsim.cpp
+ * \brief Simple program loading a circuit from a file and simulating it using GPAClib
+ * \author Fabrice L.
+ */
+
 #include <string>
 #include <memory>
 #include <map>

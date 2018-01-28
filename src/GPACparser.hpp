@@ -1,3 +1,9 @@
+/*!
+ * \file GPACparser.hpp
+ * \brief File containing the parser for loading circuits from files
+ * \author Fabrice L.
+ */
+
 #ifndef GPACPARSER_HPP_
 #define GPACPARSER_HPP_
 
@@ -15,6 +21,7 @@ namespace GPAClib {
 namespace qi = boost::spirit::qi;
 namespace lex = boost::spirit::lex;
 
+/// \brief Lexer for loading a circuit according to the specification format
 template <typename T, typename Lexer>
 struct GPACLexer : lex::lexer<Lexer>
 {
@@ -55,11 +62,11 @@ struct GPACLexer : lex::lexer<Lexer>
 	lex::token_def<>            eq;
 	lex::token_def<>            op_comp;
 };
-//template<typename T>
-//	GPAC<T> newGPAC(std::string s) { return GPAC<T>(s); }
+
 template<typename T>
 std::string ToString(T v) { return std::to_string(v);}
-	
+
+/// \brief Parser for loading a circuit according to the specification format
 template<typename T, typename Iterator, typename Lexer>
 struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 {
@@ -164,13 +171,16 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 	qi::rule<Iterator, qi::in_state_skipper<Lexer> > circuit_gates, gate, add_gate, prod_gate, int_gate, constant_gate;
 	qi::rule<Iterator, qi::in_state_skipper<Lexer> > circuit_expr;
 	qi::rule<Iterator, std::string(), qi::in_state_skipper<Lexer> > expression, op;
-	
-	
+		
 	std::string current_circuit;
 	std::string current_gate;
 	CircuitMap circuits;
 };
 
+/*! \brief Loading a circuit written in the specification format from a file
+ * \param filename
+ * \returns The circuit corresponding to the last circuit specified in the file.
+ */
 template<typename T>
 GPAC<T> LoadFromFile(std::string filename)
 {
