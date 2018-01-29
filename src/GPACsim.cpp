@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 	std::cout << circuit.normalize().simplify() << "\n";
-	circuit.finalize().SimulateGnuplot(0., 10., 0.001, "simulation.pdf");
+	circuit.finalize().SimulateGnuplot(0., 12., 0.0001, "simulation.pdf");
 	
 	return 0;
 }
