@@ -1200,7 +1200,7 @@ GPAC<T> Constant(T constant) {
 	return res;
 }
 
-/// %Circuit computing identity function
+/// %Circuit computing the identity function
 template<typename T>
 GPAC<T> Identity() {
 	GPAC<T> res("Id", true, true);
@@ -1208,7 +1208,7 @@ GPAC<T> Identity() {
 	return res;
 }
 
-/// %Circuit computing exponential function
+/// %Circuit computing the exponential function
 template<typename T> 
 GPAC<T> Exp() {
 	GPAC<T> res("Exp", true, true);
@@ -1218,7 +1218,7 @@ GPAC<T> Exp() {
 	return res;
 }
 
-/// %Circuit computing sinus function
+/// %Circuit computing the sine function
 template<typename T> 
 GPAC<T> Sin() {
 	GPAC<T> res("Sin", true, true);
@@ -1233,7 +1233,7 @@ GPAC<T> Sin() {
 	return res;
 }
 
-/// %Circuit computing cosinus function
+/// %Circuit computing the cosine function
 template<typename T>
 GPAC<T> Cos() {
 	GPAC<T> res("Cos", true, true);
@@ -1245,6 +1245,23 @@ GPAC<T> Cos() {
 	res.setOutput("cos");
 	res.setInitValue("cos", 1);
 	res.setInitValue("sin", 0);
+	return res;
+}
+
+/// %Circuit computing the arctan function
+template<typename T>
+GPAC<T> Arctan() {
+	GPAC<T> res("Arctan", true, true);
+	res
+		("c", -2)
+		("der", "I", "p3", "t")
+		("p1", "x", "c", "t")
+		("p2", "x", "der", "der")
+		("p3", "x", "p1", "p2")
+		("arctan", "I", "der", "t");
+	res.setOutput("arctan");
+	res.setInitValue("der", 1);
+	res.setInitValue("arctan", 0);
 	return res;
 }
 
@@ -1284,8 +1301,8 @@ GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 			res += coeffs[i]; 
 	}
 	return res;
-}	
-
+}
+	
 }
 
 #endif
