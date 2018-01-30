@@ -96,6 +96,7 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		circuits["Sin"] = GPAClib::Sin<T>();
 		circuits["Cos"] = GPAClib::Cos<T>();
 		circuits["Arctan"] = GPAClib::Arctan<T>();
+		circuits["Tan"] = GPAClib::Tan<T>();
 		circuits["Id"] = GPAClib::Identity<T>();
 		circuits["t"] = GPAClib::Identity<T>();
 		

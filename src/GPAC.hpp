@@ -1247,6 +1247,20 @@ GPAC<T> Cos() {
 	res.setInitValue("sin", 0);
 	return res;
 }
+	
+/// %Circuit computing the tangent function
+template<typename T>
+GPAC<T> Tan() {
+	GPAC<T> res("Tan", true, true);
+	res
+		("c", 1)
+		("tan2", "*", "tan", "tan")
+		("add", "+", "c", "tan2")
+		("tan", "I", "add", "t");
+	res.setOutput("tan");
+	res.setInitValue("tan", 0);
+	return res;
+}
 
 /// %Circuit computing the arctan function
 template<typename T>

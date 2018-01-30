@@ -69,7 +69,6 @@ The `@` operator corresponds to composition of circuits. An identifier is the na
   
 List of builtin circuits:
   - `Exp`: exponential
-  - `Sin`
-  - `Cos`
+  - `Sin`, `Cos`, `Tan`
   - `Arctan`
   - `Id`: identity (same as `t`)
