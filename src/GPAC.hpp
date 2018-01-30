@@ -1278,6 +1278,21 @@ GPAC<T> Arctan() {
 	res.setInitValue("arctan", 0);
 	return res;
 }
+	
+/// %Circuit computing the function 1/(1+t)
+
+temlplate<typename T>
+GPAC<T> Inverse() {
+	GPAC<T> res("Inverse", true, true);
+	res
+		("c", -1)
+		("p", "x", "inv", "inv")
+		("p2", "x", "c", "p")
+		("inv", "I", "p2", "t");
+	res.setOutput("inv");
+	res.setInitValue("inv", 1);
+	return res;
+}
 
 /// %Circuit computing \f$t^{2^n} \f$
 template<typename T>
