@@ -1,0 +1,6 @@
+Circuit problem:
+	add: pb + t
+	i: int add d(add) | 0
+	c: 1
+	pb: i + c
+;
