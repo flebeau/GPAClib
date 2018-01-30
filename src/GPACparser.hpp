@@ -179,7 +179,6 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 };
 
 /*! \brief Loading a circuit written in the specification format from a file
- * \param filename
  * \returns The circuit corresponding to the last circuit specified in the file.
  */
 template<typename T>
