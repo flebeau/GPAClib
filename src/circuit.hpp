@@ -54,6 +54,7 @@ public:
 	 * \return A reference to the gates of the circuit stored by names.
 	 */
 	const GatesMap &Gates() const {return gates;}
+	size_t size() const {return gates.size();}
 	
 	/*! \brief Iterating on names of gates
 	 * \return An iterator on the names of the gates of the circuit.

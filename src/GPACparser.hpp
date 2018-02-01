@@ -221,10 +221,10 @@ GPAC<T> LoadFromFile(std::string filename)
 		return GPAC<T>();
     }
 	
-	std::cerr << "======================\n"
+	std::cerr << "=========================\n"
 			  << "Parsing of file " << filename << " successful!\n"
 			  << "Loaded circuit " << parser.getCircuit().Name() << std::endl
-			  << "======================" << std::endl;
+			  << "=========================\n" << std::endl;
     
 	return parser.getCircuit();
 }

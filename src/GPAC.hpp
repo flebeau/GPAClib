@@ -524,6 +524,26 @@ public:
 				const std::string &v = input_gate->Y();
 				const std::string &w = gate->X();
 				
+				// If the second input is some gate multiplied by a constant, modify accordingly
+				if ((u != "t" && isConstantGate(u)) || (v != "t" && isConstantGate(v))) {
+					std::string c_gate;
+					std::string not_c_gate;
+					if (u != "t" && isConstantGate(u)) {
+						c_gate = u;
+						not_c_gate = v;
+					}
+					if (v != "t" && isConstantGate(v)) {
+						c_gate = v;
+						not_c_gate = u;
+					}
+					
+					std::string prod_gate = getNewGateName();
+					addProductGate(prod_gate, c_gate, w, false);
+					gate->X() = prod_gate;
+					gate->Y() = not_c_gate;
+					continue;
+				}
+				
 				std::string p1 = getNewGateName();
 				std::string p2 = getNewGateName();
 				addProductGate(p1, u, w, false);
@@ -1092,6 +1112,14 @@ public:
 		}
 	    
 		finalized = true;
+		
+		std::cerr << "Finalized circuit ";
+		if (circuit_name == "")
+			std::cerr << "<unknown> ";
+		else
+			std::cerr << circuit_name;
+		std::cerr << " of size " << size() << ".\n" << std::endl;
+		
 		return *this;
 	}
 	
