@@ -309,6 +309,82 @@ public:
 		return res.str();
 	}
 	
+	std::string toDot() const {
+		std::stringstream res("");
+		
+		/* Identify different types of gates */
+		std::vector<std::string> constant_names;
+		std::vector<std::string> addition_names;
+		std::vector<std::string> product_names;
+		std::vector<std::string> integration_names;
+		
+		for (const auto &g : gates) {
+			if (isConstantGate(g.first))
+				constant_names.push_back(g.first);
+			else if (isAddGate(g.first))
+				addition_names.push_back(g.first);
+			else if (isProductGate(g.first))
+				product_names.push_back(g.first);
+			else if (isIntGate(g.first))
+				integration_names.push_back(g.first);
+		}
+		
+		/* Generate the header first */
+		res << "digraph " << circuit_name << "{\n"
+			<< "\tnode [shape = box];\n\n";
+		
+		/* Define nodes with the appropriate labels */
+		// First, the node for t
+		res << "\tnode [label = \"t\"]; t;\n\n";
+        
+        // Constant gates
+		for (const auto &gate_name: constant_names) {
+			const ConstantGate<T> *gate = asConstantGate(gate_name);
+			res << "\tnode [label = \"" << gate->Constant() << "\"]; " << gate_name << ";\n";
+		}
+		if (constant_names.size() > 0)
+			res << "\n";
+		
+		// Addition gates
+		if (addition_names.size() > 0) {
+			res << "\tnode [label = \"+\"];\n";
+			for (const auto &gate_name: addition_names) {
+				res << "\t" << gate_name << ";\n";
+			}
+			res << "\n";
+		}
+		
+		// Product gates
+		if (product_names.size() > 0) {
+			res << "\tnode [label = \"⨯\"];\n";
+			for (const auto &gate_name: product_names) {
+				res << "\t" << gate_name << ";\n";
+			}
+			res << "\n";
+		}
+		
+		// Integration gates
+		if (integration_names.size() > 0) {
+			res << "\tnode [label = \"∫\"];\n";
+			for (const auto &gate_name: integration_names) {
+				res << "\t" << gate_name << ";\n";
+			}
+			res << "\n";
+		}
+		
+		/* Now define edges */
+		for (const auto &g: gates) {
+			if (isBinaryGate(g.first)) {
+				const BinaryGate<T> *gate = asBinaryGate(g.first);
+				res << "\t" << gate->X() << " -> " << g.first << ";\n";
+				res << "\t" << gate->Y() << " -> " << g.first << ";\n";
+			}
+		}
+		res << "}\n";
+		
+		return res.str();
+	}
+	
 	/*! \brief Parenthesis operator for adding binary gates
 	 * \param gate_name Name of the gate to be added
 	 * \param op Symbol of the operator
@@ -530,6 +606,7 @@ public:
 	 * and trying again until a fixed point is reached.
 	 */
 	GPAC<T> &simplify() {
+		unsigned n_deletions = 0;
 		if (finalized)
 			return *this;
 		/* Sort inputs of symmetric binary gates (i.e. addition and product) so that they always are in the same order */
@@ -566,7 +643,6 @@ public:
 		std::sort(addition_names.begin(), addition_names.end(), PreferUserDefinedNames());
 		std::sort(product_names.begin(), product_names.end(), PreferUserDefinedNames());
 		std::sort(integration_names.begin(), integration_names.end(), PreferUserDefinedNames());
-		std::cerr << "#\n";
 		
 		/* First delete duplicate constants */
 		std::map<std::string, std::string> new_names;
@@ -586,6 +662,7 @@ public:
 				if (output_gate == new_name.first)
 					output_gate = new_name.second;
 				gates.erase(new_name.first);
+				n_deletions++;
 			}
 		}
 		
@@ -678,10 +755,14 @@ public:
 						output_gate = new_name.second;
 					gates.erase(new_name.first);
 					new_names.erase(new_name.first);
+					n_deletions++;
 				}
 			}
 		}
-				
+		
+		if (n_deletions > 0) {
+			std::cerr << "In circuit " << circuit_name << ": deleted " << n_deletions << " gates.\n\n";
+		}
 		return *this;
 	}
 	

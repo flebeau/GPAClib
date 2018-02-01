@@ -1,0 +1,5 @@
+Circuit b = (Sin @ Sin);
+Circuit C = (b @ b);
+Circuit D = (C @ C);
+Circuit E = (D @ D);
+Circuit Gargantua = (E @ E);

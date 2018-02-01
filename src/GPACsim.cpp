@@ -8,6 +8,7 @@
 #include <memory>
 #include <map>
 #include <iostream>
+#include <fstream>
 #include <boost/program_options.hpp>
 
 #include "GPAC.hpp"
@@ -15,10 +16,10 @@
 
 int main(int argc, char *argv[]) {
 	std::string filename;
-	bool simulate = true, simplification = true;
+	bool simulate = true, simplification = true, to_dot = false;
 	double b = 5.;
 	double step = 0.001;
-	std::string output;
+	std::string output, dot_file;
 	
 	/* Handle program options */
 	namespace po = boost::program_options;
@@ -27,11 +28,13 @@ int main(int argc, char *argv[]) {
 		opt_descr.add_options()
 			("help,h", "Display this help message")
 			("circuit-file,i", po::value<std::string>(&filename)->required(), "Input file defining the circuit to simulate")
-			("no-simulation", "Validate the circuit without simulating it")
-			("no-simplification", "Disable simplification of loaded circuit")
+			("output,o", po::value<std::string>(&output), "Output (pdf) file of the simulation")
 			("sup,b", po::value<double>(&b), "Sup of the interval on which the circuit is to be simulated")
 			("step,s", po::value<double>(&step), "Step for the simulation")
-			("output,o", po::value<std::string>(&output), "Output (pdf) file")
+			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
+			("no-simulation", "Validate the circuit without simulating it")
+			("no-simplification", "Disable simplification of loaded circuit")
+			
 		;
 	    po::positional_options_description p;
         p.add("circuit-file", -1);
@@ -47,6 +50,8 @@ int main(int argc, char *argv[]) {
 			simulate = false;
 		if (vm.count("no-simplification"))
 			simplification = false;
+		if (vm.count("to-dot"))
+			to_dot = true;
 		
 		po::notify(vm);
 	}
@@ -61,7 +66,20 @@ int main(int argc, char *argv[]) {
 		std::cerr << "Quitting after error...\n" << std::endl;
 		return EXIT_FAILURE;
 	}
-	std::cout << circuit.finalize(simplification) << "\n";
+	
+	circuit.finalize(simplification);
+	
+	if (!to_dot) {
+		std::cout << circuit << "\n";
+	}
+	else {
+		if (dot_file != "") {
+			std::ofstream ofs(dot_file, std::ofstream::out);
+			ofs << circuit.toDot() << "\n";
+		}
+		else
+			std::cout << circuit.toDot() << "\n";
+	}
 	
 	if (simulate)
 		circuit.SimulateGnuplot(0., b, step, output);
