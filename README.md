@@ -63,7 +63,7 @@ The second way to define a circuit is by combination of previously defined circu
 
 where expressions are defined with the following grammar:
 
-    expr ::= value | identifier | (expr + expr) | (expr * expr) | (expr @ expr)
+    expr ::= value | identifier | (expr + expr) | (expr * expr) | (expr @ expr) | (int expr d( expr ) | value)
 
 The `@` operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or `t`. 
   

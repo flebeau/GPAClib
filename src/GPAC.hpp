@@ -510,6 +510,11 @@ public:
 			exit(EXIT_FAILURE);
 		}
 		else if (output_gate != "t" && gates.count(output_gate) == 0) {
+			std::cerr << output_gate << std::endl;
+			for (const auto &g : gates) {
+				std::cerr << g.first << ",";
+			}
+			std::cerr << std::endl;
 			CircuitErrorMessage() << "Output gate is invalid!";
 			exit(EXIT_FAILURE);
 		}
@@ -527,11 +532,11 @@ public:
 	GPAC<T> &simplify() {
 		if (finalized)
 			return *this;
-		/* Sort inputs of binary gates so that they always are in the same order */
+		/* Sort inputs of symmetric binary gates (i.e. addition and product) so that they always are in the same order */
 		for (const auto &g : gates) {
 			if (isAddGate(g.first) || isProductGate(g.first)) {
 				BinaryGate<T> *gate = asBinaryGate(g.first);
-				if (gate->X() >= gate->Y()) {
+				if (gate->X() > gate->Y()) {
 					std::string temp = gate->X();
 					gate->X() = gate->Y();
 					gate->Y() = temp;
@@ -561,6 +566,7 @@ public:
 		std::sort(addition_names.begin(), addition_names.end(), PreferUserDefinedNames());
 		std::sort(product_names.begin(), product_names.end(), PreferUserDefinedNames());
 		std::sort(integration_names.begin(), integration_names.end(), PreferUserDefinedNames());
+		std::cerr << "#\n";
 		
 		/* First delete duplicate constants */
 		std::map<std::string, std::string> new_names;
@@ -577,6 +583,8 @@ public:
 		
 		for (const auto &new_name : new_names) {
 			if (new_name.first != new_name.second) {
+				if (output_gate == new_name.first)
+					output_gate = new_name.second;
 				gates.erase(new_name.first);
 			}
 		}
@@ -592,6 +600,7 @@ public:
 			}
 		}
 		
+		
 		/* Recursively delete duplicate product, addition and integration gates  */
 		new_names.clear();
 		for (const auto &name : addition_names)
@@ -599,7 +608,7 @@ public:
 		for (const auto &name : product_names)
 			new_names[name] = name;
 		for (const auto &name : integration_names)
-			new_names[name] = name;		
+			new_names[name] = name;
 		bool changed = true;
 		while (changed) {
 			changed = false;
@@ -610,7 +619,7 @@ public:
 				const AddGate<T> *gate1 = asAddGate(addition_names[i]);
 				for (unsigned j = i+1; j<addition_names.size(); ++j) {
 					if (new_names.count(addition_names[j]) == 0)
-						continue; // Gate cas already removed
+						continue; // Gate was already removed
 					const AddGate<T> *gate2 = asAddGate(addition_names[j]);
 					if (gate1->X() == gate2->X() && gate1->Y() == gate2->Y()) {
 						new_names[addition_names[j]] = new_names[addition_names[i]];
@@ -665,6 +674,8 @@ public:
 			// Finally delete useless gates
 			for (const auto &new_name : new_names) {
 				if (new_name.first != new_name.second) {
+					if (output_gate == new_name.first)
+						output_gate = new_name.second;
 					gates.erase(new_name.first);
 					new_names.erase(new_name.first);
 				}
@@ -711,6 +722,8 @@ public:
 				gate->Y() = new_names[gate->Y()];
 		}
 	}
+	
+	/* ===== Operations between circuits  ===== */
 	
 	/// Returns a new circuit which represents the addition of the two circuits
 	GPAC<T> operator+(const GPAC<T> &circuit) const {
@@ -769,6 +782,22 @@ public:
 		setOutput(getNewGateName());
 		addProductGate(Output(), old_output, circuit.Output(), false);
 		return *this;
+	}
+	/// \brief Returns a new circuit which represents the integration of the first one with respect to the second one with given initial value
+	GPAC<T> Integrate(const GPAC<T> &circuit, T value) const {
+		if (output_gate == "" || circuit.Output() == "") {
+			CircuitErrorMessage() << "Can't combine circuits with no defined output!";
+			exit(EXIT_FAILURE);
+		}
+		
+		GPAC<T> result(*this);
+		result.ensureUniqueNames(circuit);
+		std::string old_output = result.Output();
+		result.copyInto(circuit, false); // copy circuit in result
+		result.setOutput(getNewGateName());
+		result.addIntGate(result.Output(), old_output, circuit.Output(), false);
+		result.setInitValue(result.Output(), value);
+		return result;
 	}
 	/// Returns a new circuit which represents the composition of the two circuits
 	GPAC<T> operator()(const GPAC<T> &circuit) const {
@@ -925,7 +954,8 @@ public:
 	}
 	
 	/*! \brief Ensures that the circuit is finalized, i.e. that everything is set for simulating
-	 * 
+	 * \param simplfication Enable the simplification of the circuit (default: true)
+	 *
 	 * A finalized circuit is a circuit that is normalized, simplified and validated. Moreover, it
 	 * means that some data useful for simulating has been precomputed, like the list of integration
 	 * gates.
@@ -934,11 +964,12 @@ public:
 	 * operation that modify the circuit set this attribute to false. If the `finalized` attribute is
 	 * set to true, this method does nothing: the circuit is already finalized!
 	 */
-	GPAC<T> &finalize() {
+	GPAC<T> &finalize(bool simplification = true) {
 		if (finalized)
 			return *this;
 		normalize();
-		simplify();
+		if (simplification)
+			simplify();
 		validate();
 		// Check that all valid integration gate have initial values
 		for (const auto &g : gates) {
@@ -1156,6 +1187,8 @@ private:
 				return true;
 			if (x[0] != '_' && y[0] == '_')
 				return true;
+			if (x[0] == '_' && y[0] != '_')
+				return false;
 			return (x<y);
 		}
 	};

@@ -158,7 +158,10 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 						   phx::bind(&GPAC<T>::rename, phx::ref(circuits)[qi::_val], qi::_val)]
 		;
 		
-		op = ((expression >> tok.op_add >> expression) 
+		op = ((tok.op_int >> expression >> tok.d >> tok.lpar >> expression >> tok.rpar >> tok.vert >> tok.value)
+			  [qi::_val = "_" + spi::_2 + "_i_" + spi::_5,
+			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Integrate, phx::ref(circuits)[spi::_2], phx::ref(circuits)[spi::_5], spi::_8)  ]
+			  |(expression >> tok.op_add >> expression) 
 			  [qi::_val = "_" + spi::_1 + "_p_" + spi::_3,
 			   phx::ref(circuits)[qi::_val] = phx::ref(circuits)[spi::_1] + phx::ref(circuits)[spi::_3]]
 			  |(expression >> tok.op_prod >> expression) 
