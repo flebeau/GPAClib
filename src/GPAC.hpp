@@ -309,6 +309,12 @@ public:
 		return res.str();
 	}
 	
+	/*! \brief Compute a dot representation of the circuit
+	 * 
+	 * Returns a dot representation of the circuit, where nodes are gates and edges of the inputs
+	 * point to the corresponding gate. The output gate is highlighted in red and doubled rectangle.
+	 * For integration gates, the input corresponding to the integration variable are drawn dashed.
+	 */
 	std::string toDot() const {
 		std::stringstream res("");
 		
@@ -340,7 +346,11 @@ public:
         // Constant gates
 		for (const auto &gate_name: constant_names) {
 			const ConstantGate<T> *gate = asConstantGate(gate_name);
-			res << "\tnode [label = \"" << gate->Constant() << "\"]; " << gate_name << ";\n";
+			res << "\tnode [label = \"" << gate->Constant() << "\"]; "
+				<< gate_name;
+			if (output_gate == gate_name)
+				res << " [color = red, fontcolor = red, peripheries = 2]";
+			res << ";\n";
 		}
 		if (constant_names.size() > 0)
 			res << "\n";
@@ -349,7 +359,10 @@ public:
 		if (addition_names.size() > 0) {
 			res << "\tnode [label = \"+\"];\n";
 			for (const auto &gate_name: addition_names) {
-				res << "\t" << gate_name << ";\n";
+				res << "\t" << gate_name;
+				if (output_gate == gate_name)
+					res << " [color = red, fontcolor = red, peripheries = 2]";
+				res << ";\n";
 			}
 			res << "\n";
 		}
@@ -358,7 +371,10 @@ public:
 		if (product_names.size() > 0) {
 			res << "\tnode [label = \"⨯\"];\n";
 			for (const auto &gate_name: product_names) {
-				res << "\t" << gate_name << ";\n";
+				res << "\t" << gate_name;
+				if (output_gate == gate_name)
+					res << " [color = red, fontcolor = red, peripheries = 2]";
+				res << ";\n";
 			}
 			res << "\n";
 		}
@@ -367,7 +383,10 @@ public:
 		if (integration_names.size() > 0) {
 			res << "\tnode [label = \"∫\"];\n";
 			for (const auto &gate_name: integration_names) {
-				res << "\t" << gate_name << ";\n";
+				res << "\t" << gate_name;
+				if (output_gate == gate_name)
+					res << " [color = red, fontcolor = red, peripheries = 2]";
+				res << ";\n";
 			}
 			res << "\n";
 		}
@@ -377,7 +396,10 @@ public:
 			if (isBinaryGate(g.first)) {
 				const BinaryGate<T> *gate = asBinaryGate(g.first);
 				res << "\t" << gate->X() << " -> " << g.first << ";\n";
-				res << "\t" << gate->Y() << " -> " << g.first << ";\n";
+				res << "\t" << gate->Y() << " -> " << g.first;
+				if (isIntGate(g.first))
+					res << " [style = dashed]";
+				res << ";\n";
 			}
 		}
 		res << "}\n";
@@ -908,7 +930,7 @@ public:
 		}
 		/* Set new output */
 		result.setOutput(Output());
-		result.normalize();
+		result.normalize(); // Normalize the circuit!
 		return result;
 	}
 	/// Returns a new circuit which represents the addition of the circuit with a constant
@@ -1219,7 +1241,7 @@ public:
 		return *this;
 	}
 	
-private:
+protected:
 	static unsigned new_gate_id; ///< Static variable used for generating unique gate names
 	bool validation; ///< Option for activating verification at each modification of the circuit
 	bool block; ///< Specifies if the circuit is a builtin circuit (not user-defined)

@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
 	std::string filename;
-	bool simulate = true, simplification = true, to_dot = false;
+	bool simulate = true, simplification = true, to_dot = false, finalization = true;
 	double b = 5.;
 	double step = 0.001;
 	std::string output, dot_file;
@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
 			("step,s", po::value<double>(&step), "Step for the simulation")
 			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
 			("no-simulation", "Validate the circuit without simulating it")
-			("no-simplification", "Disable simplification of loaded circuit")
-			
+			("no-simplification", "Disable simplification of the circuit")
+			("no-finalization", "Disable finalization of the circuit, also disable simulation")
 		;
 	    po::positional_options_description p;
         p.add("circuit-file", -1);
@@ -50,6 +50,8 @@ int main(int argc, char *argv[]) {
 			simulate = false;
 		if (vm.count("no-simplification"))
 			simplification = false;
+		if (vm.count("no-finalization"))
+			finalization = false;
 		if (vm.count("to-dot"))
 			to_dot = true;
 		
@@ -60,6 +62,11 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 	
+	if (!finalization && simulate) {
+		WarningMessage() << "cannot simulate a circuit that is not finalized -> simulation disabled.";
+		simulate = false;
+	}
+	
 	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
 	
 	if (circuit.Output() == "") {
@@ -67,7 +74,8 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 	
-	circuit.finalize(simplification);
+	if (finalization)
+		circuit.finalize(simplification);
 	
 	if (!to_dot) {
 		std::cout << circuit << "\n";
