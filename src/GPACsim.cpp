@@ -16,7 +16,8 @@
 
 int main(int argc, char *argv[]) {
 	std::string filename;
-	bool simulate = true, simplification = true, to_dot = false, finalization = true;
+	bool simulate = true, simplification = true, to_dot = false, to_code = false;
+	bool finalization = true;
 	double b = 5.;
 	double step = 0.001;
 	std::string output, dot_file;
@@ -32,6 +33,7 @@ int main(int argc, char *argv[]) {
 			("sup,b", po::value<double>(&b), "Sup of the interval on which the circuit is to be simulated")
 			("step,s", po::value<double>(&step), "Step for the simulation")
 			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
+			("to-code", "Prints the C++ representation of the circuit")
 			("no-simulation", "Validate the circuit without simulating it")
 			("no-simplification", "Disable simplification of the circuit")
 			("no-finalization", "Disable finalization of the circuit, also disable simulation")
@@ -54,6 +56,8 @@ int main(int argc, char *argv[]) {
 			finalization = false;
 		if (vm.count("to-dot"))
 			to_dot = true;
+		if (vm.count("to-code"))
+			to_code = true;
 		
 		po::notify(vm);
 	}
@@ -70,17 +74,14 @@ int main(int argc, char *argv[]) {
 	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
 	
 	if (circuit.Output() == "") {
-		std::cerr << "Quitting after error...\n" << std::endl;
+		circuit.CircuitErrorMessage() << "no output defined!";
 		return EXIT_FAILURE;
 	}
 	
 	if (finalization)
 		circuit.finalize(simplification);
 	
-	if (!to_dot) {
-		std::cout << circuit << "\n";
-	}
-	else {
+	if (to_dot) {
 		if (dot_file != "") {
 			std::ofstream ofs(dot_file, std::ofstream::out);
 			ofs << circuit.toDot() << "\n";
@@ -88,6 +89,10 @@ int main(int argc, char *argv[]) {
 		else
 			std::cout << circuit.toDot() << "\n";
 	}
+	else if (to_code)
+		std::cout << circuit.toCode() << "\n";
+	else
+		std::cout << circuit << "\n";
 	
 	if (simulate)
 		circuit.SimulateGnuplot(0., b, step, output);

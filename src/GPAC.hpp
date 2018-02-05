@@ -17,8 +17,10 @@
 #include <sstream>
 #include <algorithm>
 #include <queue>
+#include <math.h>
 #include <boost/numeric/odeint.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/math/constants/constants.hpp>
 
 #include "utils.hpp"
 #include "gate.hpp"
@@ -440,6 +442,55 @@ public:
 		return *this;
 	}
 	
+	/// \brief Add the name of the circuit in front of the name of the gate
+	std::string exportName(std::string gate_name) const {
+		if (gate_name == "t")
+			return "t";
+		else if (gate_name.length() < circuit_name.length() && std::equal(gate_name.begin(), gate_name.end(), circuit_name.begin()))
+			return gate_name;
+		else if (gate_name[0] == '_')
+			return circuit_name + gate_name;
+		else
+			return circuit_name + "_" + gate_name;
+	}
+	
+	/// \brief Exports the circuit to a C++ code that can be used with GPAClib
+	std::string toCode(std::string var_name = "circuit") const {	
+		std::stringstream res("");
+		std::string op;
+		
+		res << var_name << "\n";
+		
+		for (const auto &g : gates) {
+			if (isConstantGate(g.first)) {
+				const ConstantGate<T> *gate = asConstantGate(g.first);
+				res << "\t(\"" << exportName(g.first) << "\", " << gate->Constant() << ")\n";
+				continue;
+			}
+			const BinaryGate<T> *gate = asBinaryGate(g.first);
+			if (isAddGate(g.first))
+				op = "\"+\"";
+			else if (isProductGate(g.first))
+				op = "\"*\"";
+			else
+				op = "\"I\"";
+			res << "\t(\"" << exportName(g.first) << "\", " << op << ", "
+				<< "\"" << exportName(gate->X()) << "\", " << "\"" << exportName(gate->Y()) << "\")\n";
+		}
+		res << ";\n"
+			<< var_name << ".setOutput(\"" << exportName(output_gate) << "\");\n";		
+        
+        /* Now export initial values for integration gates */
+		for (const auto &g : gates) {
+			if (!isIntGate(g.first))
+				continue;
+			if (values.count(g.first))
+				res << var_name << ".setInitValue(\"" << exportName(g.first) << "\", " << values.at(g.first) << ");\n";
+		}
+		
+		return res.str();
+	}
+	
 	/*! \brief Comparator class for sorting integration gates
 	 *
 	 * When normalizing a circuit, some integration gates are replaced with larger subcircuits.
@@ -489,6 +540,7 @@ public:
 	GPAC<T> &normalize(bool guess_init_value = true) {
 		if (finalized)
 			return *this;
+		
 		/* First make a list of all integration gates with no t inputs */
 		std::priority_queue<std::string, std::vector<std::string>, CompareIntGate> pb_int_gates(CompareIntGate(*this));
 		for (const auto &g : gates) {
@@ -802,8 +854,30 @@ public:
 			}
 		}
 		
+		/* Now delete useless gates (gates with output not used) */
+		changed = true;
+		while (changed) {
+			changed = false;
+			std::map<std::string, bool> used_gates;
+			used_gates[output_gate] = true;
+			for (const auto &g : gates) {
+				if (!isBinaryGate(g.first))
+					continue;
+				const BinaryGate<T> *gate = asBinaryGate(g.first);
+				used_gates[gate->X()] = true;
+				used_gates[gate->Y()] = true;
+			}
+			for (const auto &g : gates) {
+				if (used_gates.count(g.first) == 0) {
+					gates.erase(g.first);
+					changed = true;
+					n_deletions++;
+				}
+			}
+		}
+		
 		if (n_deletions > 0) {
-			std::cerr << "In circuit " << circuit_name << ": deleted " << n_deletions << " gates.\n\n";
+			std::cerr << "In circuit " << circuit_name << ": deleted " << n_deletions << " gate(s).\n\n";
 		}
 		return *this;
 	}
@@ -1495,6 +1569,61 @@ GPAC<T> Polynomial(const std::vector<T> &coeffs) {
 	return res;
 }
 	
+/*! \brief %Circuit useful for simulating a switch
+ * \param alpha Stricly positive value corresponding to the precision of the switch
+ */
+template<typename T>
+GPAC<T> L2(T alpha) {
+	T y = 1./alpha;
+	// GPAC<T> res = 0.5 + (1./boost::math::constants::pi<T>()) * Arctan<T>()(4 * y * Identity<T>());
+	GPAC<T> res("L2", true, true);
+	res
+		("L2_1", 4*y)
+		("L2_2", "*", "L2_1", "L2_t2")
+		("L2_3", "*", "L2_1", "L2_p3")
+		("L2_4", "*", "L2_1", "L2_der")
+		("L2_5", 1./boost::math::constants::pi<T>())
+		("L2_6", "*", "L2_5", "L2_arctan")
+		("L2_7", 0.5)
+		("L2_arctan", "I", "L2_4", "t")
+		("L2_c", -2)
+		("L2_c2", -0.5)
+		("L2_der", "I", "L2_3", "t")
+		("L2_p1", "*", "L2_2", "L2_c")
+		("L2_p2", "*", "L2_der", "L2_der")
+		("L2_p3", "*", "L2_p1", "L2_p2")
+		("L2_t2", "+", "L2_c2", "t")
+		("L2_8", "+", "L2_6", "L2_7");
+	res.setOutput("L2_8");
+	res.setInitValue("L2_arctan", atan(-2. * y));
+	res.setInitValue("L2_der", 1./(1.+4.*y*y));
+	
+	return res;
+}
+
+/// \brief %Circuit useful to get rectangular signal
+template<typename T>
+GPAC<T> Upsilon() {
+	GPAC<T> res("Upsilon", true, true);
+	res
+		("Upsilon_2", "*", "Upsilon_c", "Upsilon_cos")
+		("Upsilon_3", "*", "Upsilon_c", "Upsilon_sin_P")
+		("Upsilon_4", 2)
+		("Upsilon_5", "*", "Upsilon_4", "Upsilon_sin")
+		("Upsilon_6", 1)
+		("Upsilon_7", "+", "Upsilon_5", "Upsilon_6")
+		("Upsilon_c", 6.28312)
+		("Upsilon_cos", "I", "Upsilon_3", "t")
+		("Upsilon_sin", "I", "Upsilon_2", "t")
+		("Upsilon_sin_P", "*", "Upsilon_sin", "Upsilon_sin_c")
+		("Upsilon_sin_c", -1);
+	res.setOutput("Upsilon_7");
+	res.setInitValue("Upsilon_cos", 0);
+	res.setInitValue("Upsilon_sin", 1);
+	
+	return res;
+}
+
 }
 
 #endif

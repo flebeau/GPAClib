@@ -99,6 +99,8 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		circuits["Tan"] = GPAClib::Tan<T>();
 		circuits["Id"] = GPAClib::Identity<T>();
 		circuits["Inverse"] = GPAClib::Inverse<T>();
+		circuits["L2"] = GPAClib::L2<T>(0.1);
+		circuits["Upsilon"] = GPAClib::Upsilon<T>();
 		circuits["t"] = GPAClib::Identity<T>();
 		
 		/* Definition of the grammar */
