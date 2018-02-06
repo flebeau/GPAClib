@@ -398,6 +398,8 @@ public:
 			if (isBinaryGate(g.first)) {
 				const BinaryGate<T> *gate = asBinaryGate(g.first);
 				res << "\t" << gate->X() << " -> " << g.first << ";\n";
+				if (isIntGate(g.first) && gate->Y() == "t")
+					continue;
 				res << "\t" << gate->Y() << " -> " << g.first;
 				if (isIntGate(g.first))
 					res << " [style = dashed]";
@@ -507,19 +509,19 @@ public:
 			const IntGate<T> *gate1 = circuit.asIntGate(x);
 			const IntGate<T> *gate2 = circuit.asIntGate(y);
 			if (circuit.isIntGate(gate1->Y()) && circuit.asIntGate(gate1->Y())->Y() == "t") {
-				return true;
+				return false;
 			}
 			if (circuit.isIntGate(gate2->Y()) && circuit.asIntGate(gate2->Y())->Y() == "t")
-				return false;
+				return true;
 			if (circuit.isProductGate(gate1->Y()))
-				return true;
+				return false;
 			if (circuit.isProductGate(gate2->Y()))
-				return false;
-			if (circuit.isAddGate(gate1->Y()))
 				return true;
-			if (circuit.isAddGate(gate2->Y()))
+			if (circuit.isAddGate(gate1->Y()))
 				return false;
-			return x < y;
+			if (circuit.isAddGate(gate2->Y()))
+				return true;
+			return x > y;
 		}
 	private:
 		const GPAC &circuit; /*!< Reference to the circuit in which the gates to be compared are */
@@ -593,6 +595,8 @@ public:
 					addProductGate(prod_gate, c_gate, w, false);
 					gate->X() = prod_gate;
 					gate->Y() = not_c_gate;
+					if (not_c_gate != "t")
+						pb_int_gates.push(gate_name);
 					continue;
 				}
 				
@@ -637,7 +641,12 @@ public:
 			}
 			// Problem if none of these 3 cases above: all remainning problematic integration gates cannot be simplified
 			else {
-				CircuitErrorMessage() << "Cannot normalize the circuit!";
+				CircuitErrorMessage() << "Cannot normalize the circuit! Problem with gate " << gate_name << ".";
+				std::cerr << *this << std::endl << std::endl;
+				while (pb_int_gates.size() > 0) {
+					std::cerr << pb_int_gates.top() << std::endl;
+					pb_int_gates.pop();
+				}
 				exit(EXIT_FAILURE);
 			}
 		}

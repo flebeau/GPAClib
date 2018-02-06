@@ -1,0 +1,3 @@
+Circuit Sigma = (t + (-0.2 * (Sin @ (6.283185307 * t))));
+Circuit A = (Sigma @ Sigma);
+Circuit S = (A @ A);
