@@ -10,6 +10,9 @@
 #include <iostream>
 #include <fstream>
 #include <boost/program_options.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/lu.hpp>
+#include <boost/numeric/ublas/io.hpp>
 
 #include "GPAC.hpp"
 #include "GPACparser.hpp"
@@ -83,8 +86,7 @@ int main(int argc, char *argv[]) {
 	
 	if (to_dot) {
 		if (dot_file != "") {
-			std::ofstream ofs(dot_file, std::ofstream::out);
-			ofs << circuit.toDot() << "\n";
+			circuit.toDot(dot_file);
 		}
 		else
 			std::cout << circuit.toDot() << "\n";

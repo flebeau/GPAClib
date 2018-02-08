@@ -411,6 +411,12 @@ public:
 		return res.str();
 	}
 	
+	/// \brief Export the dot representation to a file
+	void toDot(std::string filename) const {
+		std::ofstream ofs(filename, std::ofstream::out);
+		ofs << toDot() << "\n";
+	}
+	
 	/*! \brief Parenthesis operator for adding binary gates
 	 * \param gate_name Name of the gate to be added
 	 * \param op Symbol of the operator
@@ -556,8 +562,10 @@ public:
 		/* Modify all occurences of integration gate with second input which is not t */
 		while (pb_int_gates.size() > 0) {
 			std::string gate_name = pb_int_gates.top();
-			//std::cout << "#" << gate_name << "\n";
+			//std::cerr << gate_name << std::endl;
+            //std::cout << "#" << gate_name << "\n";
 			//std::cout << toString() << "\n";
+			
 			pb_int_gates.pop();
 			IntGate<T> *gate = asIntGate(gate_name);
 			// There are three cases
@@ -830,8 +838,11 @@ public:
 						continue; // Gate cas already removed
 					const IntGate<T> *gate2 = asIntGate(integration_names[j]);
 					if (gate1->X() == gate2->X() && gate1->Y() == gate2->Y()) {
-						new_names[integration_names[j]] = new_names[integration_names[i]];
-						changed = true;
+						if (values.count(integration_names[i])>0 && values.count(integration_names[j])>0
+							&& values[integration_names[i]] == values[integration_names[j]]) {
+							new_names[integration_names[j]] = new_names[integration_names[i]];
+							changed = true;
+						}
 					}
 				}	
 			}
@@ -1632,7 +1643,44 @@ GPAC<T> Upsilon() {
 	
 	return res;
 }
+	
+/// \brief %Circuit approximating the mod 10 function
+template<typename T>
+GPAC<T> Mod10() {
+	GPAC<T> csin = Sin<T>();
+	GPAC<T> ccos = Cos<T>();
+	GPAC<T> ct = Identity<T>();
+	GPAC<T> res("Mod10", true, true);
 
+	using namespace boost::numeric::ublas;
+	
+	/* Compute coefficients for trigonometric interpolation */
+	matrix<double> A(10,10);
+	vector<double> y(10);
+	double pi = boost::math::constants::pi<double>();
+	for (unsigned i = 0; i<10; i++) {
+		y(i) = i; //w(i) = i
+		A(i,0) = 1; //a_0
+		A(i,9) = cos(pi * i); //a_5
+		for (unsigned j = 1; j<=4; j++) {
+			A(i,j) = cos(j*i*pi/5.); // a_j
+			A(i,4+j) = sin(j*i*pi/5.); //b_j
+		}
+	}
+	permutation_matrix<size_t> pm(A.size1());
+	lu_factorize(A, pm);
+	lu_substitute(A, pm, y); // y contains the coefficients
+	
+	res = Constant<T>(y(0));
+	res += y(9) * ccos(pi*ct);
+	for (unsigned j = 1; j<= 4; j++) {
+		res += y(j) * ccos(j * (pi / 5.) * ct);
+		res += y(4+j) * csin(j * (pi / 5.) * ct);
+	}
+	
+	return res;
+}
+	
 }
 
 #endif

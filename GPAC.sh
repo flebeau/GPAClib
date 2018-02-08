@@ -3,8 +3,13 @@ if [[ $# -lt 1 ]]; then
 	exit
 fi
 
-cat "circuits/$1"
-build/GPACsim "${@:2}" --to-dot "$1.dot" -o "$1.pdf" "circuits/$1"
-dot -Tsvg "$1.dot" -o "$1.svg"
-evince "$1.pdf"&
-inkscape "$1.svg"
+dir=`dirname "$1"`
+file=`basename "$1"`
+
+cat "$1"
+echo
+mkdir -p results/
+build/GPACsim "${@:2}" --to-dot "results/${file}.dot" -o "results/${file}.pdf" "$1"
+dot -Tsvg "results/${file}.dot" -o "results/${file}.svg"
+#evince "results/${file}.pdf"&
+#inkscape "results/${file}.svg"
