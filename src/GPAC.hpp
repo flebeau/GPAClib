@@ -132,17 +132,20 @@ public:
 		}
 	}
 	/*! \brief Adding an addition gate
-	 * \param gate_name Name of the gate to be added
+	 * \param gate_name Name of the gate to be added (if empty string, creates a new unique name)
 	 * \param x Name of the first input gate
 	 * \param y Name of the second input gate
 	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 * \return Name of the added gate
 	 *
 	 * Add an addition gate to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-    void addAddGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addAddGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
-		if (validation && validate)
+		if (gate_name == "")
+			gate_name = getNewGateName();
+		else if (validation && validate)
 			validateGateName(gate_name);
 		if (gates.count(gate_name) > 0) {
 			CircuitWarningMessage() << "Gate \"" << gate_name << "\" already exists, adding it again will overwrite it!";
@@ -150,20 +153,24 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new AddGate<T>(x,y));
+		return gate_name;
 	}
 	
     /*! \brief Adding a product gate
-	 * \param gate_name Name of the gate to be added
+	 * \param gate_name Name of the gate to be added (if empty string, creates a new unique name)
 	 * \param x Name of the first input gate
 	 * \param y Name of the second input gate
 	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 * \return Name of the added gate
 	 *
 	 * Add a product gate to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-    void addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
-		if (validation && validate)
+		if (gate_name == "")
+			gate_name = getNewGateName();
+		else if (validation && validate)
 			validateGateName(gate_name);
 		if (gates.count(gate_name) > 0) {
 			CircuitWarningMessage() << "Gate \"" << gate_name << "\" already exists, adding it again will overwrite it!";
@@ -171,20 +178,24 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ProductGate<T>(x,y));
+		return gate_name;
 	}
 	
 	/*! \brief Adding an integration gate
-	 * \param gate_name Name of the gate to be added
+	 * \param gate_name Name of the gate to be added (if empty string, creates a new unique name)
 	 * \param x Name of the integrand gate name
 	 * \param y Name of the gate with respect to which is integration is done
 	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 * \return Name of the added gate
 	 *
 	 * Add an integration to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-    void addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
 		finalized = false;
-		if (validation && validate)
+		if (gate_name == "")
+			gate_name = getNewGateName();
+		else if (validation && validate)
 			validateGateName(gate_name);
 		if (validation && validate && has(y) && isConstantGate(y)) {
 			CircuitErrorMessage() << "Gate \"" << gate_name << "\" is defined as an integration gate with constant second input!";
@@ -197,19 +208,23 @@ public:
 		else {
 			gates[gate_name] = std::unique_ptr<Gate>(new IntGate<T>(x,y));
 		}
+		return gate_name;
 	}
 	
 	/*! \brief Adding a constant gate
-	 * \param gate_name Name of the gate to be added
+	 * \param gate_name Name of the gate to be added (if empty string, creates a new unique name)
 	 * \param value Value of the gate
 	 * \param validate If true, validate gate name before adding it, even if the circuit `validation` attribute is set to false (default: true)
+	 * \return Name of the added gate
 	 *
 	 * Add a constant gate to the circuit with specified name and value. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-    void addConstantGate(std::string gate_name, T value, bool validate = true) {
+	std::string addConstantGate(std::string gate_name, T value, bool validate = true) {
 		finalized = false;
-		if (validation && validate)
+		if (gate_name == "")
+			gate_name = getNewGateName();
+		else if (validation && validate)
 			validateGateName(gate_name);
 		if (gates.count(gate_name) > 0) {
 			CircuitWarningMessage() << "Gate \"" << gate_name << "\" already exists, adding it again will overwrite it!";
@@ -217,6 +232,44 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ConstantGate<T>(value));
+		return gate_name;
+	}
+	
+	/// Delete the gate
+	GPAC<T> &eraseGate(std::string gate_name) {
+		gates.erase(gate_name);
+		return *this;
+	}
+	
+	/// Modify all occurences of gate_name in the inputs into new_name
+	GPAC<T> &renameInputs(std::string gate_name, std::string new_name) {
+		for (const auto &g : gates) {
+			if (!isConstantGate(g.first)) {
+				BinaryGate<T>* gate = asBinaryGate(g.first);
+				if (gate->X() == gate_name)
+					gate->X() = new_name;
+				if (gate->Y() == gate_name)
+					gate->Y() = new_name;
+			}
+		}
+		return *this;
+	}
+	
+	/// Rename a gate
+	GPAC<T> &renameGate(std::string gate_name, std::string new_name) {
+		gates[new_name] = std::move(gates[gate_name]);
+		gates.erase(gate_name);
+		if (values.count(gate_name)) {
+			T value = values[gate_name];
+			values.erase(gate_name);
+			values[new_name] = value;
+		}
+			
+		/* Replace output gate if necessary */
+		if (gate_name == output_gate)
+			output_gate = new_name;
+		
+		return *this;
 	}
 	
     /// Returns the `block` attribute value
@@ -290,8 +343,11 @@ public:
 		std::string prefix_line = "";
 		if (circuit_name != "") {
 			res << "Circuit " << circuit_name << ":\n";
-			prefix_line = "\t";
 		}
+		else {
+			res << "Circuit unknown:\n";
+		}
+		prefix_line = "\t";
 		for (const auto &g : gates) {
 			if (g.first == output_gate) // Skip output gate to print it last
 				continue;
@@ -716,7 +772,7 @@ public:
 	 * Then it recursively tries to delete binary gates that have the same inputs, by merging them
 	 * and trying again until a fixed point is reached.
 	 */
-	GPAC<T> &simplify() {
+	GPAC<T> &simplify(bool constants_only = false) {
 		unsigned n_deletions = 0;
 		if (finalized)
 			return *this;
@@ -788,6 +844,8 @@ public:
 			}
 		}
 		
+		if (constants_only)
+			return *this;
 		
 		/* Recursively delete duplicate product, addition and integration gates  */
 		new_names.clear();
@@ -1044,7 +1102,7 @@ public:
 		}
 		/* Set new output */
 		result.setOutput(Output());
-		result.normalize(); // Normalize the circuit!
+		//result.normalize(); // Normalize the circuit!
 		return result;
 	}
 	/// Returns a new circuit which represents the addition of the circuit with a constant
@@ -1149,7 +1207,36 @@ public:
 		}
 		return *this;
 	}
-		
+	
+	/// Returns a new circuit which is the circuit subtracted with the other circuit
+	GPAC<T> operator-(const GPAC<T> &circuit) const {
+		return *this + (circuit * (-1));
+	}
+	GPAC<T> operator-() const {
+		return *this * (-1.);
+	}
+	
+	/// Returns the circuit iterated with itself j times
+	GPAC<T> Iterate(unsigned j) const {
+		GPAC<T> res("");
+		if (j == 0) {
+			res.setOutput("t");
+			return res;
+		}
+		if (j == 1)
+			return *this;
+		res = Iterate(j/2);
+		res = res(res);
+		if (j % 2 == 1)
+			res = res(*this);
+		return res;
+	}
+	
+	/// Bracket operator for iterations of circuit
+	GPAC<T> operator[](unsigned j) const {
+		return Iterate(j);
+	}
+	
 	/* ===== Simulation methods =====*/
 	
 	/*! \brief Set the init value of an integration gate
@@ -1363,6 +1450,26 @@ public:
 		return *this;
 	}
 	
+	GPAC<T> &SimulateDump(T a, T b, T dt) {
+		if (!finalized) {
+			CircuitErrorMessage() << "Cannot simulate a circuit if it is not finalized!";
+			exit(EXIT_FAILURE);
+		}
+		initValues();
+		std::vector<T> y(int_gates.size());
+		for (unsigned i = 0; i<y.size(); ++i)
+			y[i] = values[int_gates[i]];
+		boost::numeric::odeint::runge_kutta4<std::vector<T> > stepper;
+		std::vector<T> values;
+		std::vector<T> times;
+		computeValues(a);
+		boost::numeric::odeint::integrate_const(stepper, std::bind(&GPAC<T>::ODE, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), y, a, b , dt, OutputObserver(*this, values, times));
+		for (unsigned i = 0; i<times.size(); ++i) {
+			std::cout << times[i] << "\t" << values[i] << std::endl;
+		}
+		return *this;
+	}
+	
 protected:
 	static unsigned new_gate_id; ///< Static variable used for generating unique gate names
 	bool validation; ///< Option for activating verification at each modification of the circuit
@@ -1474,6 +1581,12 @@ GPAC<T> Exp() {
 	res.setOutput("exp");
 	res.setInitValue("exp", 1);
 	return res;
+}
+	
+/// %Circuit computing the function 2^t
+template<typename T>
+GPAC<T> Exp2() {
+	return Exp<T>()(log(2) * Identity<T>());
 }
 
 /// %Circuit computing the sine function
@@ -1621,6 +1734,24 @@ GPAC<T> L2(T alpha) {
 	return res;
 }
 
+/*! \brief %Circuit useful for reducing errors
+ * \param circuit Circuit computing the error-controlling function
+ */
+template<typename T>
+GPAC<T> L2(const GPAC<T> &circuit) {
+	GPAC<T> res = L2<T>(0.1);
+	GPAC<T> Y = circuit;
+	
+	Y.ensureUniqueNames(res);
+	res.copyInto(Y, false);
+	res.eraseGate("L2_1");
+	std::string c = res.addConstantGate("", 4, false);
+	std::string p = res.addProductGate("", c, Y.Output(), false);
+	res.renameInputs("L2_1", p);
+	
+	return res;
+}	
+
 /// \brief %Circuit useful to get rectangular signal
 template<typename T>
 GPAC<T> Upsilon() {
@@ -1632,7 +1763,7 @@ GPAC<T> Upsilon() {
 		("Upsilon_5", "*", "Upsilon_4", "Upsilon_sin")
 		("Upsilon_6", 1)
 		("Upsilon_7", "+", "Upsilon_5", "Upsilon_6")
-		("Upsilon_c", 6.28312)
+		("Upsilon_c", 2. * boost::math::constants::pi<T>())
 		("Upsilon_cos", "I", "Upsilon_3", "t")
 		("Upsilon_sin", "I", "Upsilon_2", "t")
 		("Upsilon_sin_P", "*", "Upsilon_sin", "Upsilon_sin_c")
@@ -1641,6 +1772,14 @@ GPAC<T> Upsilon() {
 	res.setInitValue("Upsilon_cos", 0);
 	res.setInitValue("Upsilon_sin", 1);
 	
+	return res;
+}
+	
+/// \brief %Circuit apprixmating rounding function
+template<typename T>
+GPAC<T> Round() {
+	GPAC<T> res = Identity<T>() - 0.2 * Sin<T>()(2 * boost::math::constants::pi<T>() * Identity<T>());
+	res.rename("Round");
 	return res;
 }
 	

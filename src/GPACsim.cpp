@@ -17,6 +17,8 @@
 #include "GPAC.hpp"
 #include "GPACparser.hpp"
 
+GPAClib::GPAC<double> GracaImplementation();
+
 int main(int argc, char *argv[]) {
 	std::string filename;
 	bool simulate = true, simplification = true, to_dot = false, to_code = false;
@@ -74,6 +76,7 @@ int main(int argc, char *argv[]) {
 		simulate = false;
 	}
 	
+	//GPAClib::GPAC<double> circuit = GracaImplementation();
 	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
 	
 	if (circuit.Output() == "") {
@@ -98,6 +101,37 @@ int main(int argc, char *argv[]) {
 	
 	if (simulate)
 		circuit.SimulateGnuplot(0., b, step, output);
+	//circuit.SimulateDump(0., b, step);
 	
 	return 0;
+}
+
+GPAClib::GPAC<double> GracaImplementation() {
+	using namespace GPAClib;
+	GPAC<double> sin = Sin<double>()(2 * boost::math::constants::pi<double>() * Identity<double>());
+	GPAC<double> s = 0.5 * (sin * sin + sin);
+	GPAC<double> z1 = Constant<double>(42), z2 = Constant<double>(43);
+	z1.rename("z1"); z1.renameGate("c", "z1");
+	z2.rename("z2"); z2.renameGate("c", "z2");
+	double lambda1 = 10;
+	double lambda2 = 10;
+	double gamma = 0.5;
+	
+	GPAC<double> temp = z1 - Exp2<double>()(Round<double>()(z2));
+	GPAC<double> y = (1./gamma) * lambda1 * temp * temp * temp * temp + lambda1 / gamma + 10;
+	GPAC<double> Z1 = (lambda1 * temp * temp * temp * L2<double>(y)(s)).Integrate(Identity<double>(), 0); 
+	
+	temp = z2 - Round<double>()(z1);
+	y = (1./gamma) * lambda2 * temp * temp * temp * temp + lambda2 / gamma + 10;
+	GPAC<double> Z2 = (lambda2 * temp * temp * temp * L2<double>(y)(s(-Identity<double>()))).Integrate(Identity<double>(), 0);
+	
+	GPAC<double> circuit = Z1;
+	Z2.ensureUniqueNames(circuit);
+	circuit.copyInto(Z2, false);
+	circuit.simplify(true);
+	
+	circuit.renameInputs("z1", Z1.Output());
+	circuit.renameInputs("z2", Z2.Output());
+	
+	return circuit;
 }

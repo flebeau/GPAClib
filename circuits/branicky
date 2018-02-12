@@ -1,0 +1,11 @@
+Circuit Branicky:
+	c: -1200
+	c2: -10
+	a: z + c2
+	p3: a * a
+	p2: a * p3
+	p1: c * p2
+	p0: p1 * t
+	p: p0 * t
+	z: int p d(t) | 0
+;

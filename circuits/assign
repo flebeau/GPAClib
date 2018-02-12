@@ -1,0 +1,11 @@
+Circuit Assign1:
+	a: 1
+	m1: -1
+	c: 500
+	p1: assign * m1
+	add: p1 + a
+	p2: add * add
+	p3: p2 * add
+	p4: p3 * c
+	assign: int p4 d(t) | 0.75
+;
