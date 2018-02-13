@@ -54,8 +54,9 @@ The gate specification is the following:
   - for product gates: `<operand1> * <operand2>`
   - for addition gate: `<operand1> + <operand2>`
   - for integration gates:  `int <integrated> d(<variable>) | <initial_value>`
+  - for a copy of a previously defined circuit: `<identifier>`
   
-Operands are names of gates defined (before or after) in the same circuit or `t`. Gate names cannot be empty, cannot start with underscore and `t` is reserved. A value is either an integer or a floating point number, it can be negative. The last gate entered is the *output gate*.
+Operands are names of gates defined (before or after) in the same circuit or `t`. The last type allows to import a copy of a previously defined circuit and to use the gate as the output of this circuit. Gate names cannot be empty, cannot start with underscore and `t` is reserved. A value is either an integer or a floating point number, it can be negative. The last gate entered is the *output gate*.
 
 The second way to define a circuit is by combination of previously defined circuits:
 
@@ -63,9 +64,10 @@ The second way to define a circuit is by combination of previously defined circu
 
 where expressions are defined with the following grammar:
 
-    <expr> ::= <value> | <identifier> | (<expr> + <expr>) | (<expr> * <expr>) | (<expr> @ <expr>) | (int <expr> d( <expr> ) | <value>)
+	<op> ::= + | * | @
+    <expr> ::= <value> | <identifier> | <identifier>[<integer>] | (<expr> <op> <expr>) | (<expr> <op> <expr>)[<integer>] | (int <expr> d(<expr>) | <value>)
 
-The `@` operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or `t`. 
+The `@` operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or `t`. An integer is non-negative and a value is a floating point number or an integer (no sign restriction). The `[]` operator is for iterating an expression or a circuit, e.g. `C[5]` represents circuit `C` iterated 5 times.
   
 List of builtin circuits:
   - `Exp`: exponential
@@ -73,5 +75,8 @@ List of builtin circuits:
   - `Arctan`
   - `Inverse`: function `1/(1+t)`
   - `Id`: identity (same as `t`)
+  - `L2`: approximation of a "toggle" (close to 0 for `t` < 1/4 and close to 1 for `t` > 3/4)
+  - `Round`: approximation of rounding function, contracts any real which is not an half integer to the closest integer
+  - `Mod10`: approximation of the mod 10 function
 
 Examples of circuit files are given in the `circuits` folder.

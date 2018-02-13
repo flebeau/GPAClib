@@ -30,13 +30,15 @@ int main(int argc, char *argv[]) {
 	/* Handle program options */
 	namespace po = boost::program_options;
 	try {
+		std::string step_descr = "Step for the simulation (default: " + std::to_string(step) + ")";
+		std::string b_descr = "Sup of the interval on which the circuit is to be simulated (default: " + std::to_string(b) + ")";
 		po::options_description opt_descr("Options description");
 		opt_descr.add_options()
 			("help,h", "Display this help message")
 			("circuit-file,i", po::value<std::string>(&filename)->required(), "Input file defining the circuit to simulate")
 			("output,o", po::value<std::string>(&output), "Output (pdf) file of the simulation")
-			("sup,b", po::value<double>(&b), "Sup of the interval on which the circuit is to be simulated")
-			("step,s", po::value<double>(&step), "Step for the simulation (default: " + std::to_string(step) + ")")
+			("sup,b", po::value<double>(&b), b_descr.c_str())
+			("step,s", po::value<double>(&step), step_descr.c_str())
 			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
 			("to-code", "Prints the C++ representation of the circuit")
 			("no-simulation", "Validate the circuit without simulating it")

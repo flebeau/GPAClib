@@ -4,7 +4,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 dir=`dirname "$1"`
-file=`basename "$1"`
+file=`basename "$1" ".gpac"`
 
 cat "$1"
 echo

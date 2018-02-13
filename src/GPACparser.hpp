@@ -30,10 +30,13 @@ struct GPACLexer : lex::lexer<Lexer>
 		  circuit ("Circuit")
 		, d ("d")
 		, lpar ('(')
+		, lbracket ('[')  
 		, rpar (')')
+		, rbracket (']')
 		, identifier    ("[a-zA-Z_][a-zA-Z0-9_]*")
         , white_space   ("[ \\t\\n]+")
-        , value ("[1-9][0-9]*|[-]?[0-9]*\\.?[0-9]+")
+        , value ("[-]?[0-9]*\\.?[0-9]+")
+		, integer ("[1-9][0-9]*")
 		, op_add ("\\+")
 		, op_prod ("\\*")
 		, op_int ("int")
@@ -43,16 +46,17 @@ struct GPACLexer : lex::lexer<Lexer>
 		, eq ('=')
 		, op_comp ('@')
 	{
-        this->self = circuit | d | lpar | rpar | value | op_add | op_prod | op_int | col | semicol | vert | eq | op_comp | identifier;
+        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_prod | op_int | col | semicol | vert | eq | op_comp | identifier;
         this->self("WS") = white_space;
     }
 	lex::token_def<>            circuit;
 	lex::token_def<>            d;
-	lex::token_def<>            lpar;
-    lex::token_def<>            rpar;
+	lex::token_def<>            lpar, lbracket;
+    lex::token_def<>            rpar, rbracket;
 	lex::token_def<std::string> identifier;
     lex::token_def<>            white_space;
-    lex::token_def<T>      value;
+    lex::token_def<T>           value;
+	lex::token_def<unsigned>    integer;
 	lex::token_def<>            op_add;
 	lex::token_def<>            op_prod;
 	lex::token_def<>            op_int;
@@ -106,6 +110,10 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		circuits["t"] = GPAClib::Identity<T>();
 		
 		/* Definition of the grammar */
+		value =
+			tok.integer [qi::_val = spi::_1]
+			| tok.value [qi::_val = spi::_1]
+		;
 		
 		spec = +((tok.circuit >> tok.identifier [phx::ref(current_circuit) = spi::_1, phx::ref(circuits)[spi::_1] = GPAC<T>()]
 												 //,std::cout << val("Detecting circuit ") << _1 << std::endl] 
@@ -121,7 +129,16 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			 ;
 		
 		gate = 
-			(tok.identifier [ phx::ref(current_gate) = spi::_1] >> tok.col >> (add_gate | prod_gate | int_gate | constant_gate))
+			(tok.identifier [ phx::ref(current_gate) = spi::_1] >> tok.col >> (add_gate | prod_gate | int_gate | constant_gate | circuit_ref))
+		;
+		
+		circuit_ref = 
+			(tok.identifier)
+			[ phx::ref(temp) = phx::ref(circuits)[spi::_1],
+			  phx::bind(&GPAC<T>::ensureUniqueNames, phx::ref(temp), phx::ref(circuits)[phx::ref(current_circuit)]),
+			  phx::bind(&GPAC<T>::copyInto, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(temp), false),
+			  phx::bind(&GPAC<T>::renameGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::bind(&GPAC<T>::Output, phx::ref(temp)), phx::ref(current_gate)),
+			  phx::bind(&GPAC<T>::renameInputs, phx::ref(circuits)[phx::ref(current_circuit)], phx::bind(&GPAC<T>::Output, phx::ref(temp)), phx::ref(current_gate))]
 		;
 		
 		add_gate = 
@@ -137,14 +154,14 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		;
 		
 		int_gate =
-			(tok.op_int >> tok.identifier >> tok.d >> tok.lpar >> tok.identifier >> tok.rpar >> tok.vert >> tok.value)
+			(tok.op_int >> tok.identifier >> tok.d >> tok.lpar >> tok.identifier >> tok.rpar >> tok.vert >> value)
 			[ //std::cout << val("int ") << spi::_2 << val(" d( ") << spi::_5 << val(" ) | ") << spi::_8 << std::endl,
 			  phx::bind(&GPAC<T>::addIntGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_2, spi::_5, false),
 			  phx::bind(&GPAC<T>::setInitValue, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_8)]
 		;
 		
 		constant_gate =
-			(tok.value)
+			(value)
 			[ //std::cout << spi::_1 << std::endl,
 			  phx::bind(&GPAC<T>::addConstantGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, false)]
 		;
@@ -155,14 +172,20 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		;
 		
 		expression = 
-			(tok.lpar >> op >> tok.rpar) [qi::_val = spi::_2]
+			(tok.lpar >> op >> tok.rpar >> tok.lbracket >> tok.integer >> tok.rbracket) 
+			  [qi::_val = "_" + spi::_2 + "[" + phx::bind(&ToString<unsigned>, spi::_5) + "]",
+			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Iterate, phx::ref(circuits)[spi::_2], spi::_5)]
+			| (tok.lpar >> op >> tok.rpar) [qi::_val = spi::_2]
+			| (tok.identifier >> tok.lbracket >> tok.integer >> tok.rbracket) 
+			  [qi::_val = "_" + spi::_1 + "[" + phx::bind(&ToString<unsigned>, spi::_3) + "]",
+			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Iterate, phx::ref(circuits)[spi::_1], spi::_3)]
 			| (tok.identifier) [qi::_val = spi::_1]
-			| (tok.value) [qi::_val = phx::bind(&ToString<T>, spi::_1),
+			| (value) [qi::_val = phx::bind(&ToString<T>, spi::_1),
 				           phx::ref(circuits)[qi::_val] = phx::bind(&GPAClib::Constant<T>, spi::_1),
 						   phx::bind(&GPAC<T>::rename, phx::ref(circuits)[qi::_val], qi::_val)]
 		;
 		
-		op = ((tok.op_int >> expression >> tok.d >> tok.lpar >> expression >> tok.rpar >> tok.vert >> tok.value)
+		op = ((tok.op_int >> expression >> tok.d >> tok.lpar >> expression >> tok.rpar >> tok.vert >> value)
 			  [qi::_val = "_" + spi::_2 + "_i_" + spi::_5,
 			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Integrate, phx::ref(circuits)[spi::_2], phx::ref(circuits)[spi::_5], spi::_8)  ]
 			  |(expression >> tok.op_add >> expression) 
@@ -178,13 +201,15 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
     }
 	
 	qi::rule<Iterator, qi::in_state_skipper<Lexer> > spec; 
-	qi::rule<Iterator, qi::in_state_skipper<Lexer> > circuit_gates, gate, add_gate, prod_gate, int_gate, constant_gate;
+	qi::rule<Iterator, qi::in_state_skipper<Lexer> > circuit_gates, gate, add_gate, prod_gate, int_gate, constant_gate, circuit_ref;
 	qi::rule<Iterator, qi::in_state_skipper<Lexer> > circuit_expr;
 	qi::rule<Iterator, std::string(), qi::in_state_skipper<Lexer> > expression, op;
-		
+	qi::rule<Iterator, double, qi::in_state_skipper<Lexer> > value;
+	
 	std::string current_circuit;
 	std::string current_gate;
 	CircuitMap circuits;
+	GPAClib::GPAC<T> temp;
 };
 
 /*! \brief Loading a circuit written in the specification format from a file

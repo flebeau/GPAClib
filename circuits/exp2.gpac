@@ -1,0 +1,6 @@
+Circuit Toggle = (Round @ (L2 @ ((-1 * t)+2.5)));
+Circuit E:
+	tog: Toggle
+	p: y * tog
+	y: int p d(t) | 1
+;
