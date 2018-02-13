@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 			("circuit-file,i", po::value<std::string>(&filename)->required(), "Input file defining the circuit to simulate")
 			("output,o", po::value<std::string>(&output), "Output (pdf) file of the simulation")
 			("sup,b", po::value<double>(&b), "Sup of the interval on which the circuit is to be simulated")
-			("step,s", po::value<double>(&step), "Step for the simulation")
+			("step,s", po::value<double>(&step), "Step for the simulation (default: " + std::to_string(step) + ")")
 			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
 			("to-code", "Prints the C++ representation of the circuit")
 			("no-simulation", "Validate the circuit without simulating it")

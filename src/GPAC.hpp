@@ -691,18 +691,10 @@ public:
 				const std::string &u = input_gate->X();
 				const std::string &v = input_gate->Y();
 				
-				/*if ((isConstantGate(u) && v == "t") || (isConstantGate(v) && u == "t")) {
-					std::string constant_gate = u;
-					if (u == "t")
-						constant_gate = v;
-					shifts[gate_name] = asConstantGate(constant_gate)->Constant(); // We store that we have to compute the new initial value
-					gate->Y() = "t"; // We delete the occurence of the constant in the second input of the gate
-				}
-				else {*/
 				/* If it is of the form u+c ignore the constant */
-				if (isConstantGate(u))
+				if (u != "t" && isConstantGate(u))
 					gate->Y() = v;
-				else if (isConstantGate(v))
+				else if (v != "t" && isConstantGate(v))
 					gate->Y() = u;
 				else {
 					std::string i1 = getNewGateName();
@@ -711,7 +703,7 @@ public:
 					if (guess_init_value && getValues().count(gate_name) > 0)
 						setInitValue(i1, 0.5 * getValues().at(gate_name));
 					if (u != "t")
-					pb_int_gates.push(i1);
+						pb_int_gates.push(i1);
 					addIntGate(i2, w, v, false);
 					if (guess_init_value && getValues().count(gate_name) > 0)
 						setInitValue(i2, 0.5 * getValues().at(gate_name));
@@ -732,36 +724,6 @@ public:
 			}
 		}
 		
-		/* We compute all initial conditions of integration gates to be shifted if necessary */
-		/*if (shifts.size() == 0)
-			return *this;
-		// First do a "partial" finalization
-		validate();
-		// Check that all valid integration gate have initial values
-		for (const auto &g : gates) {
-			if (isIntGate(g.first) && asIntGate(g.first)->Y() == "t" && values.count(g.first) == 0) {
-				CircuitErrorMessage() << "Cannot normalize circuit requiring shifting as valid integration gate " << g.first << " has no initial value set.";
-				exit(EXIT_FAILURE);
-			}
-		}
-		// Set all gates different from integration gate to "not computed"
-		// and determine all integration gates
-		int_gates.clear();
-		for (const auto &g : gates) {
-			if (!isIntGate(g.first) && values.count(g.first) > 0)
-				values.erase(g.first);
-			if (isIntGate(g.first))
-				int_gates.push_back(g.first);
-		}
-	    // Store init values at t=0
-		std::map<std::string, T> values_at_0;
-		for (const auto &int_gate : int_gates)
-			values_at_0[int_gate] = values[int_gate];
-		// Determine positive and negative values for shifting
-		std::vector<T> shift_pos, shift_neg;
-		
-		
-		finalized = true;*/
 		return *this;
 	}
 	
@@ -1136,17 +1098,21 @@ public:
 		GPAC<T> result(circuit);
 		GPAC<T> copy(*this);
 		
+		/* Compute new initial values */
 		double b = circuit.computeValue(0);
 		if (b > 0) {
 			copy.finalize(false, false);
 			copy.Simulate(0, b, 0.01);
-			std::cerr << copy.OutputValue() << std::endl;
+			//std::cerr << copy.OutputValue() << std::endl;
 		}
 		else if (b < 0) {
-			copy = -copy;
-			copy.finalize(false, false);
-			copy.Simulate(0, -b, 0.01);
-			std::cerr << copy.OutputValue() << std::endl;
+			GPAC<T> id("Id", true, true);
+			id.setOutput("t");
+			GPAC<T> copy2 = copy(-id);
+			copy2.finalize(false, false);
+			copy2.Simulate(0, -b, 0.01);
+			copy.importValues(copy2.getValues());
+			//std::cerr << copy.OutputValue() << std::endl;
 		}
 			
 		result.ensureUniqueNames(copy);
@@ -1319,6 +1285,13 @@ public:
 	/// Returns the values associated to the names of the gates
 	const std::map<std::string, T> &getValues() const {
 		return values;
+	}
+	
+	void importValues(const std::map<std::string, T> v) {
+		for (const auto &g : v) {
+			if (has(g.first))
+				values[g.first] = g.second;
+		}
 	}
 	
 	/*! \brief Ensures that the circuit is finalized, i.e. that everything is set for simulating
