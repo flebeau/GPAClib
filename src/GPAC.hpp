@@ -615,6 +615,8 @@ public:
 				pb_int_gates.push(g.first);
 		}
 		
+		std::map<std::string, T> shifts;
+		
 		/* Modify all occurences of integration gate with second input which is not t */
 		while (pb_int_gates.size() > 0) {
 			std::string gate_name = pb_int_gates.top();
@@ -689,19 +691,34 @@ public:
 				const std::string &u = input_gate->X();
 				const std::string &v = input_gate->Y();
 				
-				std::string i1 = getNewGateName();
-				std::string i2 = getNewGateName();
-				addIntGate(i1, w, u, false);
-				if (guess_init_value && getValues().count(gate_name) > 0)
-					setInitValue(i1, 0.5 * getValues().at(gate_name));
-				if (u != "t")
+				/*if ((isConstantGate(u) && v == "t") || (isConstantGate(v) && u == "t")) {
+					std::string constant_gate = u;
+					if (u == "t")
+						constant_gate = v;
+					shifts[gate_name] = asConstantGate(constant_gate)->Constant(); // We store that we have to compute the new initial value
+					gate->Y() = "t"; // We delete the occurence of the constant in the second input of the gate
+				}
+				else {*/
+				/* If it is of the form u+c ignore the constant */
+				if (isConstantGate(u))
+					gate->Y() = v;
+				else if (isConstantGate(v))
+					gate->Y() = u;
+				else {
+					std::string i1 = getNewGateName();
+					std::string i2 = getNewGateName();
+					addIntGate(i1, w, u, false);
+					if (guess_init_value && getValues().count(gate_name) > 0)
+						setInitValue(i1, 0.5 * getValues().at(gate_name));
+					if (u != "t")
 					pb_int_gates.push(i1);
-				addIntGate(i2, w, v, false);
-				if (guess_init_value && getValues().count(gate_name) > 0)
-					setInitValue(i2, 0.5 * getValues().at(gate_name));
-				if (v != "t")
-					pb_int_gates.push(i2);
-				gates[gate_name].reset(new AddGate<T>(i1,i2));
+					addIntGate(i2, w, v, false);
+					if (guess_init_value && getValues().count(gate_name) > 0)
+						setInitValue(i2, 0.5 * getValues().at(gate_name));
+					if (v != "t")
+						pb_int_gates.push(i2);
+					gates[gate_name].reset(new AddGate<T>(i1,i2));
+				}
 			}
 			// Problem if none of these 3 cases above: all remainning problematic integration gates cannot be simplified
 			else {
@@ -715,6 +732,36 @@ public:
 			}
 		}
 		
+		/* We compute all initial conditions of integration gates to be shifted if necessary */
+		/*if (shifts.size() == 0)
+			return *this;
+		// First do a "partial" finalization
+		validate();
+		// Check that all valid integration gate have initial values
+		for (const auto &g : gates) {
+			if (isIntGate(g.first) && asIntGate(g.first)->Y() == "t" && values.count(g.first) == 0) {
+				CircuitErrorMessage() << "Cannot normalize circuit requiring shifting as valid integration gate " << g.first << " has no initial value set.";
+				exit(EXIT_FAILURE);
+			}
+		}
+		// Set all gates different from integration gate to "not computed"
+		// and determine all integration gates
+		int_gates.clear();
+		for (const auto &g : gates) {
+			if (!isIntGate(g.first) && values.count(g.first) > 0)
+				values.erase(g.first);
+			if (isIntGate(g.first))
+				int_gates.push_back(g.first);
+		}
+	    // Store init values at t=0
+		std::map<std::string, T> values_at_0;
+		for (const auto &int_gate : int_gates)
+			values_at_0[int_gate] = values[int_gate];
+		// Determine positive and negative values for shifting
+		std::vector<T> shift_pos, shift_neg;
+		
+		
+		finalized = true;*/
 		return *this;
 	}
 	
@@ -1087,9 +1134,26 @@ public:
 			return circuit;
 		
 		GPAC<T> result(circuit);
-		result.ensureUniqueNames(*this);
+		GPAC<T> copy(*this);
+		
+		double b = circuit.computeValue(0);
+		if (b > 0) {
+			copy.finalize(false, false);
+			copy.Simulate(0, b, 0.01);
+			std::cerr << copy.OutputValue() << std::endl;
+		}
+		else if (b < 0) {
+			copy = -copy;
+			copy.finalize(false, false);
+			copy.Simulate(0, -b, 0.01);
+			std::cerr << copy.OutputValue() << std::endl;
+		}
+			
+		result.ensureUniqueNames(copy);
 		std::string old_output = result.Output();
-		result.copyInto(*this, false); // copy circuit in result
+		result.copyInto(copy, false); // copy circuit in result
+		
+		
 		/* Replace all instances of t in second circuit by the output of the first one */
 		for (const auto &g : *this) {
 			if (!result.isBinaryGate(g))
@@ -1102,7 +1166,7 @@ public:
 		}
 		/* Set new output */
 		result.setOutput(Output());
-		//result.normalize(); // Normalize the circuit!
+		result.normalize(); //  Normalize the circuit!
 		return result;
 	}
 	/// Returns a new circuit which represents the addition of the circuit with a constant
@@ -1268,10 +1332,12 @@ public:
 	 * operation that modify the circuit set this attribute to false. If the `finalized` attribute is
 	 * set to true, this method does nothing: the circuit is already finalized!
 	 */
-	GPAC<T> &finalize(bool simplification = true) {
+	GPAC<T> &finalize(bool simplification = true, bool print_result = true) {
 		if (finalized)
 			return *this;
 		normalize();
+		if (finalized)
+			return *this;
 		if (simplification)
 			simplify();
 		validate();
@@ -1294,12 +1360,14 @@ public:
 	    
 		finalized = true;
 		
-		std::cerr << "Finalized circuit ";
-		if (circuit_name == "")
-			std::cerr << "<unknown> ";
-		else
-			std::cerr << circuit_name;
-		std::cerr << " of size " << size() << ".\n" << std::endl;
+		if (print_result) {
+			std::cerr << "Finalized circuit ";
+			if (circuit_name == "")
+				std::cerr << "<unknown> ";
+			else
+				std::cerr << circuit_name;
+			std::cerr << " of size " << size() << ".\n" << std::endl;
+		}
 		
 		return *this;
 	}
@@ -1356,6 +1424,44 @@ public:
 			}
 		}
 		return *this;
+	}
+	
+	T computeValue(T t_0 = 0) const {
+		std::map<std::string, T> copy_values = values;
+		
+		for (const auto &g : gates) {
+			if (!isIntGate(g.first) && !isConstantGate(g.first) && copy_values.count(g.first) > 0)
+				copy_values.erase(g.first);
+		}
+		for (const auto &g : gates) {
+			if (isConstantGate(g.first)) {
+				copy_values[g.first] = asConstantGate(g.first)->Constant();
+			}
+		}
+		copy_values["t"] = t_0;
+		
+		// Then compute values by propagating already known values
+		bool changed = true;
+		while (changed) {
+			changed = false;
+			// Update value of all gates which has inputs having initial values
+			for (const auto &g : gates) {
+				if (copy_values.count(g.first) > 0)
+					continue; // Value already computed
+				if (isAddGate(g.first) || isProductGate(g.first)) {
+					const BinaryGate<T> *gate = asBinaryGate(g.first);
+					if (copy_values.count(gate->X()) > 0 && copy_values.count(gate->Y()) > 0) {
+						copy_values[g.first] = gate->operator()(copy_values[gate->X()], copy_values[gate->Y()]);
+						changed = true;
+					}	
+				}
+			}
+		}
+		return copy_values.at(output_gate);
+	}
+	
+	T OutputValue() const {
+		return values.at(output_gate);
 	}
 	
 	/*! \brief Step for simulating the circuit
