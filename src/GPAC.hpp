@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <queue>
 #include <math.h>
+#include <omp.h>
 #include <boost/numeric/odeint.hpp>
+#include <boost/numeric/odeint/external/openmp/openmp.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/math/constants/constants.hpp>
 
@@ -301,6 +303,19 @@ public:
 	bool isConstantGate(std::string gate_name) const {
 		return (dynamic_cast<ConstantGate<T>*>(gates.at(gate_name).get()) != nullptr);
 	}
+	/// \brief Returns true if the gate is a combination of constant gates, e.g. (1+1)*2
+	/// \pre A gate named `gate_name` must exist in the circuit.
+	bool isCombinationConstantGates(std::string gate_name) const {
+		if (gate_name == "t")
+			return false;
+		if (isIntGate(gate_name))
+			return false;
+		if (isConstantGate(gate_name))
+			return true;
+		const BinaryGate<T> *gate = asBinaryGate(gate_name);
+		return (isCombinationConstantGates(gate->X()) && isCombinationConstantGates(gate->Y()));
+	}
+	
 	/// \brief Returns true if the target gate is a binary gate
 	/// \pre A gate named `gate_name` must exist in the circuit.
 	bool isBinaryGate(std::string gate_name) const {
@@ -645,14 +660,14 @@ public:
 				const std::string &w = gate->X();
 				
 				// If the second input is some gate multiplied by a constant, modify accordingly
-				if ((u != "t" && isConstantGate(u)) || (v != "t" && isConstantGate(v))) {
+				if (isCombinationConstantGates(u) || isCombinationConstantGates(v)) {
 					std::string c_gate;
 					std::string not_c_gate;
-					if (u != "t" && isConstantGate(u)) {
+					if (isCombinationConstantGates(u)) {
 						c_gate = u;
 						not_c_gate = v;
 					}
-					if (v != "t" && isConstantGate(v)) {
+					if (isCombinationConstantGates(v)) {
 						c_gate = v;
 						not_c_gate = u;
 					}
@@ -692,10 +707,16 @@ public:
 				const std::string &v = input_gate->Y();
 				
 				/* If it is of the form u+c ignore the constant */
-				if (u != "t" && isConstantGate(u))
+				if (isCombinationConstantGates(u)) {
 					gate->Y() = v;
-				else if (v != "t" && isConstantGate(v))
+					if (v != "t")
+						pb_int_gates.push(gate_name);
+				}
+				else if (isCombinationConstantGates(v)) {
 					gate->Y() = u;
+					if (u != "t")
+						pb_int_gates.push(gate_name);
+				}
 				else {
 					std::string i1 = getNewGateName();
 					std::string i2 = getNewGateName();
@@ -1444,10 +1465,14 @@ public:
 	 */
 	void ODE(std::vector<T> &y, std::vector<T> &dydt, const double t) {
 		resetNonIntValues();
+		#pragma omp parallel for schedule(runtime)
 		for (unsigned i = 0; i<y.size(); ++i) {
 			values[int_gates[i]] = y[i];
 		}
+		
 		computeValues(t);
+		
+		#pragma omp parallel for schedule(runtime)
 		for (unsigned i = 0; i<dydt.size(); ++i) {
 			const IntGate<T> *gate = asIntGate(int_gates[i]);
 			dydt[i] = values[gate->X()];
@@ -1470,7 +1495,7 @@ public:
 		std::vector<T> y(int_gates.size());
 		for (unsigned i = 0; i<y.size(); ++i)
 			y[i] = values[int_gates[i]];
-		boost::numeric::odeint::runge_kutta4<std::vector<T> > stepper;
+		boost::numeric::odeint::runge_kutta4<std::vector<T>, T, std::vector<T>, T, boost::numeric::odeint::openmp_range_algebra > stepper;
 		boost::numeric::odeint::integrate_const(stepper, std::bind(&GPAC<T>::ODE, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), y, a, b , dt);
 		return *this;
 	}
@@ -1512,7 +1537,7 @@ public:
 		std::vector<T> y(int_gates.size());
 		for (unsigned i = 0; i<y.size(); ++i)
 			y[i] = values[int_gates[i]];
-		boost::numeric::odeint::runge_kutta4<std::vector<T> > stepper;
+		boost::numeric::odeint::runge_kutta4<std::vector<T>, T, std::vector<T>, T, boost::numeric::odeint::openmp_range_algebra > stepper;
 		std::vector<T> values;
 		std::vector<T> times;
 		computeValues(a);
@@ -1789,7 +1814,9 @@ GPAC<T> L2(T alpha) {
 	T y = 1./alpha;
 	// GPAC<T> res = 0.5 + (1./boost::math::constants::pi<T>()) * Arctan<T>()(4 * y * Identity<T>());
 	GPAC<T> res("L2", true, true);
-	res
+	res = 0.5 + (1. / boost::math::constants::pi<T>()) * Arctan<T>()(4. * y * (Identity<T>() + (- 0.5)));
+	res.rename("L2");
+	/*res
 		("L2_1", 4*y)
 		("L2_2", "*", "L2_1", "L2_t2")
 		("L2_3", "*", "L2_1", "L2_p3")
@@ -1808,7 +1835,7 @@ GPAC<T> L2(T alpha) {
 		("L2_8", "+", "L2_6", "L2_7");
 	res.setOutput("L2_8");
 	res.setInitValue("L2_arctan", atan(-2. * y));
-	res.setInitValue("L2_der", 1./(1.+4.*y*y));
+	res.setInitValue("L2_der", 1./(1.+4.*y*y));*/
 	
 	return res;
 }
@@ -1818,7 +1845,11 @@ GPAC<T> L2(T alpha) {
  */
 template<typename T>
 GPAC<T> L2(const GPAC<T> &circuit) {
-	GPAC<T> res = L2<T>(0.1);
+	GPAC<T> res("L2", true, true);
+	res = 0.5 + (1. / boost::math::constants::pi<T>()) * Arctan<T>()(4. * circuit * (Identity<T>() + (- 0.5)));
+	res.rename("L2");
+	
+	/*GPAC<T> res = L2<T>(0.1);
 	GPAC<T> Y = circuit;
 	
 	Y.ensureUniqueNames(res);
@@ -1828,9 +1859,22 @@ GPAC<T> L2(const GPAC<T> &circuit) {
 	std::string p = res.addProductGate("", c, Y.Output(), false);
 	res.renameInputs("L2_1", p);
 	
+	double y = circuit.computeValue(0);
+	res.setInitValue("L2_arctan", atan(-2. * y));
+	res.setInitValue("L2_der", 1./(1.+4.*y*y));*/
+	
 	return res;
+}
+	
+/*! \brief %Circuit for switching between two functions depending on a control function
+ */
+template<typename T>
+GPAC<T> Switching(const GPAC<T> &C1, const GPAC<T> &C2, const GPAC<T> &Y, double alpha) {
+	GPAC<T> temp = L2<T>(10. * (C1 + C2));
+	return C1 * temp(alpha + 0.5 + (- Y))
+		+ C2 * temp(0.5 - alpha + Y);
 }	
-
+	
 /// \brief %Circuit useful to get rectangular signal
 template<typename T>
 GPAC<T> Upsilon() {

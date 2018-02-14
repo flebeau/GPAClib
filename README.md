@@ -12,6 +12,7 @@ Prerequisites
 In order to use GPAClib, you need to have:
   - a compiler with support for C++14
   - Boost library (more specifically: System, Program Options, Iostreams, Odeint and Spirit)
+  - OpenMP
 
 If you want to compile the example code provided, you will need CMake version >= 3.1.
 
