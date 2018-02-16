@@ -1104,6 +1104,87 @@ public:
 		result.setInitValue(result.Output(), value);
 		return result;
 	}
+	/// \brief Recursive method used to compute derivative circuit
+	/// \return Name of the gate representing derivate of subcircuit (replacing input gate)
+	std::string DerivateGate(std::string gate_name) {
+		std::string res;
+		if (gate_name == "t")
+			res =  addConstantGate("", 1, false);
+		else if (isCombinationConstantGates(gate_name))
+			res =  addConstantGate("", 0, false);
+		else { 
+			const BinaryGate<T> *gate = asBinaryGate(gate_name);
+			if (isIntGate(gate_name)) {
+				if (gate->Y() != "t") {
+					CircuitErrorMessage() << "Can't compute derivate circuit of a circuit that is not normalize!";
+					exit(EXIT_FAILURE);
+				}
+				res =  gate->X();
+			}
+			else {
+				std::string const_gate = "";
+				std::string other_gate = "";
+				if (gate->X() != "t" && isCombinationConstantGates(gate->X())) {
+					const_gate = gate->X();
+					other_gate = gate->Y();
+				}
+				else if (gate->Y() != "t" && isCombinationConstantGates(gate->Y())) {
+					const_gate = gate->Y();
+					other_gate = gate->X();
+				}
+				
+				if (const_gate != "") {
+					std::string deriv = DerivateGate(other_gate);
+					if (isAddGate(gate_name))
+						res = deriv;
+					else if (isProductGate(gate_name)) {
+						res = addProductGate("", const_gate, deriv, false);
+					}
+				}
+				else {				
+					std::string deriv_x = DerivateGate(gate->X());
+					std::string deriv_y = DerivateGate(gate->Y());
+					if (isAddGate(gate_name)) {
+						res =  addAddGate("", deriv_x, deriv_y, false);
+					}
+					else { // Else it is a product gate, use formula (xy)' = x'y + xy'
+						std::string p1 = addProductGate("", deriv_x, gate->Y(), false);
+						std::string p2 = addProductGate("", gate->X(), deriv_y, false);
+						res =  addAddGate("", p1, p2, false);
+					}
+				}
+			}
+		}
+		if (gate_name == output_gate)
+			output_gate = res;
+		return res;
+	}
+	/// \brief Returns the derivative of the circuit
+	GPAC<T> Derivate() const {
+		GPAC<T> res(*this);
+		res.rename(res.Name() + "_der");
+		res.DerivateGate(res.Output());
+		return res;
+	}
+	/// \brief Returns the circuit computing the inverse
+	GPAC<T> Inverse() const {
+		GPAC<T> res(*this);
+		double init = res.computeValue(0);
+		res.rename(res.Name() + "_inv");
+		
+		res.DerivateGate(res.Output());
+		
+		std::string c = res.addConstantGate("", -1, false);
+		std::string p1 = res.addProductGate("", c, res.Output());
+		std::string p2 = getNewGateName();
+		std::string z = res.addIntGate("", p2, "t", false);
+		res.setInitValue(z, 1. / init);
+		std::string p3 = res.addProductGate("",z,z,false);
+		res.addProductGate(p2, p1, p3, false);
+		
+		res.setOutput(z);
+		return res;
+	}
 	/// Returns a new circuit which represents the composition of the two circuits
 	GPAC<T> operator()(const GPAC<T> &circuit) const {
 		if (output_gate == "" || circuit.Output() == "") {
@@ -1751,6 +1832,23 @@ GPAC<T> Arctan() {
 	res.setOutput("arctan");
 	res.setInitValue("der", 1);
 	res.setInitValue("arctan", 0);
+	return res;
+}
+	
+/// %Circuit computing the hyperbolic tangent function
+template<typename T>	
+GPAC<T> Tanh() {
+	GPAC<T> res("Tanh", true, true);
+	
+	res
+		("Tanh_c1", 1)
+		("Tanh_c2", -1)
+		("Tanh_p1", "*", "Tanh_out", "Tanh_out")
+		("Tanh_p2", "*", "Tanh_c2", "Tanh_p1")
+		("Tanh_a", "+", "Tanh_c1", "p2")
+		("Tanh_out", "I", "a", "t");
+	res.setInitValue("Tanh_out", 0);
+	res.setOutput("Tanh_out");
 	return res;
 }
 
