@@ -1088,6 +1088,15 @@ public:
 		addProductGate(Output(), old_output, circuit.Output(), false);
 		return *this;
 	}
+	/// Returns a circuit representing the division with the input circuit
+	GPAC<T> operator/(const GPAC<T> &circuit) {
+		return (*this) * circuit.Inverse();
+	}
+	/// Import the inverse of the input circuit into the current one and add a product gate
+	GPAC<T> &operator/=(const GPAC<T> &circuit) {
+		*this *= circuit.Inverse();
+		return *this;
+	}
 	/// \brief Returns a new circuit which represents the integration of the first one with respect to the second one with given initial value
 	GPAC<T> Integrate(const GPAC<T> &circuit, T value) const {
 		if (output_gate == "" || circuit.Output() == "") {
@@ -1288,6 +1297,15 @@ public:
 		}
 		return *this;
 	}
+	/// Returns a new circuit which represents the substraction of the circuit with a constant
+	GPAC<T> operator-(T constant) const {
+		return *this + (-constant);
+	}
+	/// Subtract a constant to the circuit
+	GPAC<T> &operator-=(T constant) {
+		*this += (-constant);
+		return *this;
+	}
 	/// Returns a new circuit which represents the product of the circuit with a constant
 	GPAC<T> operator*(T constant) const {
 		GPAC<T> res(*this);
@@ -1337,6 +1355,15 @@ public:
 			addProductGate(output,Output(),constant_gate,false);
 			setOutput(output);
 		}
+		return *this;
+	}
+	/// Returns a circuit divided by a constant
+	GPAC<T> operator/(T constant) const {
+		return *this * (1./constant);
+	}
+	/// Divide the circuit by a constant
+	GPAC<T> &operator/=(T constant) {
+		*this *= (1./constant);
 		return *this;
 	}
 	
@@ -1718,11 +1745,23 @@ template<typename T>
 GPAC<T> operator+(T constant, const GPAC<T> &circuit) {
 	return circuit + constant;
 }
+	
+/// Operator for subtraction with a constant on the right
+template<typename T>
+GPAC<T> operator-(T constant, const GPAC<T> &circuit) {
+	return (-circuit) + constant;
+}
 
 /// Operator for multiplication with a constant on the right
 template<typename T>
 GPAC<T> operator*(T constant, const GPAC<T> &circuit) {
 	return circuit * constant;
+}
+	
+/// Operator for division of a constant by a circuit
+template<typename T>
+GPAC<T> operator/(T constant, const GPAC<T> &circuit) {
+	return constant * circuit.Inverse();
 }
 
 /// Stream operator for printing circuits
@@ -1864,6 +1903,21 @@ GPAC<T> Inverse() {
 	res.setOutput("inv");
 	res.setInitValue("inv", 1);
 	return res;
+}
+	
+/// %Circuit computing the square root function
+template<typename T>
+GPAC<T> Sqrt() {
+	GPAC<T> res("Sqrt", true, true);
+	res
+		("Sqrt_c", -0.5)
+		("Sqrt_p1", "*", "Sqrt_out", "Sqrt_out")
+		("Sqrt_p2", "*", "Sqrt_p1", "Sqrt_out")
+		("Sqrt_p3", "*", "Sqrt_p2", "Sqrt_c")
+		("Sqrt_out", "I", "Sqrt_p3", "t");
+	res.setOutput("Sqrt_out");
+	res.setInitValue("Sqrt_out", 20.);
+	return res.Inverse();
 }
 
 /// %Circuit computing \f$t^{2^n} \f$

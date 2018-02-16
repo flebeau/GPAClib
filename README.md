@@ -74,6 +74,7 @@ List of builtin circuits:
   - `Exp`: exponential
   - `Sin`, `Cos`, `Tan`
   - `Tanh`
+  - `Sqrt`
   - `Arctan`
   - `Inverse`: function `1/(1+t)`
   - `Id`: identity (same as `t`)
