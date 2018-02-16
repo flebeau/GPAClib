@@ -65,10 +65,11 @@ The second way to define a circuit is by combination of previously defined circu
 
 where expressions are defined with the following grammar:
 
-	<op> ::= + | * | @
+	<op> ::= + | * | @ | - | /
     <expr> ::= <value> | <identifier> | <identifier>[<integer>] | (<expr> <op> <expr>) | (<expr> <op> <expr>)[<integer>] | (int <expr> d(<expr>) | <value>)
 
 The `@` operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or `t`. An integer is non-negative and a value is a floating point number or an integer (no sign restriction). The `[]` operator is for iterating an expression or a circuit, e.g. `C[5]` represents circuit `C` iterated 5 times.
+Warning: always leave a space between the `-` operator and values.
   
 List of builtin circuits:
   - `Exp`: exponential

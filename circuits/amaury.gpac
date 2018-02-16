@@ -1,0 +1,2 @@
+Circuit Sg = (Tanh @ (10 * t));
+Circuit Ip1 = (0.5 * (1 + (Sg @ (t - 1))));

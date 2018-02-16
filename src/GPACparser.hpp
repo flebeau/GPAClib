@@ -38,6 +38,8 @@ struct GPACLexer : lex::lexer<Lexer>
         , value ("[-]?[0-9]*\\.?[0-9]+")
 		, integer ("[1-9][0-9]*")
 		, op_add ("\\+")
+		, op_sub ('-')
+		, op_div ('/')
 		, op_prod ("\\*")
 		, op_int ("int")
 		, semicol (";")
@@ -46,7 +48,7 @@ struct GPACLexer : lex::lexer<Lexer>
 		, eq ('=')
 		, op_comp ('@')
 	{
-        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_prod | op_int | col | semicol | vert | eq | op_comp | identifier;
+        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | col | semicol | vert | eq | op_comp | identifier;
         this->self("WS") = white_space;
     }
 	lex::token_def<>            circuit;
@@ -57,7 +59,7 @@ struct GPACLexer : lex::lexer<Lexer>
     lex::token_def<>            white_space;
     lex::token_def<T>           value;
 	lex::token_def<unsigned>    integer;
-	lex::token_def<>            op_add;
+	lex::token_def<>            op_add, op_sub, op_div;
 	lex::token_def<>            op_prod;
 	lex::token_def<>            op_int;
 	lex::token_def<>            semicol;
@@ -193,6 +195,12 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			  |(expression >> tok.op_add >> expression) 
 			  [qi::_val = "_" + spi::_1 + "_p_" + spi::_3,
 			   phx::ref(circuits)[qi::_val] = phx::ref(circuits)[spi::_1] + phx::ref(circuits)[spi::_3]]
+			  |(expression >> tok.op_sub >> expression) 
+			  [qi::_val = "_" + spi::_1 + "_s_" + spi::_3,
+			   phx::ref(circuits)[qi::_val] = phx::ref(circuits)[spi::_1] - phx::ref(circuits)[spi::_3]]
+			  |(expression >> tok.op_div >> expression) 
+			  [qi::_val = "_" + spi::_1 + "_d_" + spi::_3,
+			   phx::ref(circuits)[qi::_val] = phx::ref(circuits)[spi::_1] / phx::ref(circuits)[spi::_3]]
 			  |(expression >> tok.op_prod >> expression) 
 			  [qi::_val = "_" + spi::_1 + "_t_" + spi::_3,
 			   phx::ref(circuits)[qi::_val] = phx::ref(circuits)[spi::_1] * phx::ref(circuits)[spi::_3]]

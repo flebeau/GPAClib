@@ -1884,8 +1884,8 @@ GPAC<T> Tanh() {
 		("Tanh_c2", -1)
 		("Tanh_p1", "*", "Tanh_out", "Tanh_out")
 		("Tanh_p2", "*", "Tanh_c2", "Tanh_p1")
-		("Tanh_a", "+", "Tanh_c1", "p2")
-		("Tanh_out", "I", "a", "t");
+		("Tanh_a", "+", "Tanh_c1", "Tanh_p2")
+		("Tanh_out", "I", "Tanh_a", "t");
 	res.setInitValue("Tanh_out", 0);
 	res.setOutput("Tanh_out");
 	return res;
