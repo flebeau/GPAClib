@@ -28,6 +28,7 @@ struct GPACLexer : lex::lexer<Lexer>
     GPACLexer()
         : 
 		  circuit ("Circuit")
+		, comment_line ("#.*$")
 		, d ("d")
 		, lpar ('(')
 		, lbracket ('[')  
@@ -49,9 +50,9 @@ struct GPACLexer : lex::lexer<Lexer>
 		, op_comp ('@')
 	{
         this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | col | semicol | vert | eq | op_comp | identifier;
-        this->self("WS") = white_space;
+        this->self("WS") = comment_line | white_space;
     }
-	lex::token_def<>            circuit;
+	lex::token_def<>            circuit, comment_line;
 	lex::token_def<>            d;
 	lex::token_def<>            lpar, lbracket;
     lex::token_def<>            rpar, rbracket;
@@ -119,7 +120,7 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			| tok.value [qi::_val = spi::_1]
 		;
 		
-		spec = +((tok.circuit >> tok.identifier [phx::ref(current_circuit) = spi::_1, phx::ref(circuits)[spi::_1] = GPAC<T>()]
+		spec = +(tok.comment_line | (tok.circuit >> tok.identifier [phx::ref(current_circuit) = spi::_1, phx::ref(circuits)[spi::_1] = GPAC<T>()]
 												 //,std::cout << val("Detecting circuit ") << _1 << std::endl] 
 				  >> (circuit_gates | circuit_expr) >> tok.semicol) 
 				 [phx::bind(&GPAC<T>::rename, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_circuit))]);

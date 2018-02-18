@@ -37,6 +37,7 @@ The documentation is generated in subdirectories `html` (open `index.html` with 
 
 Circuit specification format
 ----------------------------
+It is possible to comment a circuit specification file by inserting a `#` symbol: all remaining symbols on the line are then ignored.
 
 The first way of defining a circuit is by specifying its gates:
 

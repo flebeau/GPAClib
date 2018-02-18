@@ -1,0 +1,18 @@
+# File description
+
+Circuit test: # Circuit short description
+	# Circuit loooooooooooooo...
+	# ....oooong description
+	exp: int exp d(t) | 1 # Gate description
+; # End of circuit
+
+Circuit expr =
+	(
+	 ( Sin @ Sin) # First part
+	*( Cos @ Cos) # Second part
+	)
+;
+
+Circuit E = Exp; # A useless circuit redefinition
+
+# Ending comment

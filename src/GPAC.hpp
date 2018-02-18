@@ -1213,7 +1213,7 @@ public:
 		double b = circuit.computeValue(0);
 		if (b > 0) {
 			copy.finalize(false, false);
-			copy.Simulate(0, b, 0.01);
+			copy.Simulate(0, b, 0.001);
 			//std::cerr << copy.OutputValue() << std::endl;
 		}
 		else if (b < 0) {
@@ -1221,7 +1221,7 @@ public:
 			id.setOutput("t");
 			GPAC<T> copy2 = copy(-id);
 			copy2.finalize(false, false);
-			copy2.Simulate(0, -b, 0.01);
+			copy2.Simulate(0, -b, 0.001);
 			copy.importValues(copy2.getValues());
 			//std::cerr << copy.OutputValue() << std::endl;
 		}

@@ -1,2 +1,6 @@
-Circuit Sg = (Tanh @ (10 * t));
-Circuit Ip1 = (0.5 * (1 + (Sg @ (t - 1))));
+Circuit NzIp1Sg = (Tanh @ (1000 * t));
+Circuit NzIp1 = (0.5 * (1 + (NzIp1Sg @ (t - 1))));
+Circuit NzCltan = (t + (0.2 * (NzIp1 @ ((-1 * t) + 1.08))));
+Circuit SgCltan = (Tanh @ (100 * t));
+Circuit Cltan = ((Sin / (Sqrt @ (NzCltan @ (Cos * Cos)))) * (SgCltan @ Cos));
+Circuit Rnd = (t - (0.318 * (Arctan @ (Cltan @ (3.1416 * t)))));
