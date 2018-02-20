@@ -2095,6 +2095,20 @@ GPAC<T> Mod10() {
 	return res;
 }
 	
+/** Functions defined in Amaury Pouly's thesis **/
+
+/// \brief %Circuit computing absolute value with error delta
+template<typename T>
+GPAC<T> Abs(T delta) {
+	return delta + Tanh<T>()((1./delta) * Identity<T>()) * Identity<T>();
+}
+	
+/// \brief Returns a circuit computing the max of two circuits with error delta
+template<typename T>
+GPAC<T> Max(const GPAC<T> &X, const GPAC<T> &Y, T delta) {
+	return 0.5 * (Y + X + Abs<T>(2*delta)(Y-X));
+}
+
 }
 
 #endif

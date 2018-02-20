@@ -67,7 +67,7 @@ The second way to define a circuit is by combination of previously defined circu
 where expressions are defined with the following grammar:
 
 	<op> ::= + | * | @ | - | /
-    <expr> ::= <value> | <identifier> | <identifier>[<integer>] | (<expr> <op> <expr>) | (<expr> <op> <expr>)[<integer>] | (int <expr> d(<expr>) | <value>)
+    <expr> ::= <value> | <identifier> | <identifier>[<integer>] | (<expr> <op> <expr>) | (<expr> <op> <expr>)[<integer>] | (int <expr> d(<expr>) | <value>) | max(<expr>,<expr>)
 
 The `@` operator corresponds to composition of circuits. An identifier is the name of a previously defined circuit, or the name of a builtin circuits, or `t`. An integer is non-negative and a value is a floating point number or an integer (no sign restriction). The `[]` operator is for iterating an expression or a circuit, e.g. `C[5]` represents circuit `C` iterated 5 times.
 Warning: always leave a space between the `-` operator and values.
@@ -81,6 +81,7 @@ List of builtin circuits:
   - `Inverse`: function `1/(1+t)`
   - `Id`: identity (same as `t`)
   - `L2`: approximation of a "toggle" (close to 0 for `t` < 1/4 and close to 1 for `t` > 3/4)
+  - `Abs`: approximation of the absolute value function
   - `Round`: approximation of rounding function, contracts any real which is not an half integer to the closest integer
   - `Mod10`: approximation of the mod 10 function
 
