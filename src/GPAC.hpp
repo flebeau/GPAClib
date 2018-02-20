@@ -2069,9 +2069,9 @@ GPAC<T> Mod10() {
 	using namespace boost::numeric::ublas;
 	
 	/* Compute coefficients for trigonometric interpolation */
-	matrix<double> A(10,10);
-	vector<double> y(10);
-	double pi = boost::math::constants::pi<double>();
+	matrix<T> A(10,10);
+	vector<T> y(10);
+	T pi = boost::math::constants::pi<T>();
 	for (unsigned i = 0; i<10; i++) {
 		y(i) = i; //w(i) = i
 		A(i,0) = 1; //a_0
@@ -2102,7 +2102,33 @@ template<typename T>
 GPAC<T> Abs(T delta) {
 	return delta + Tanh<T>()((1./delta) * Identity<T>()) * Identity<T>();
 }
+
+/// \brief %Circuit computing the sign function
+template<typename T>
+GPAC<T> Sgn(T mu) {
+	return Tanh<T>()((1./mu) * Identity<T>());
+}
+
+/// \brief %Circuit computing a switch between value 0 and 1 at t=1
+template<typename T>
+GPAC<T> Ip1(T mu) {
+	return 0.5 * (1. + Sgn<T>(mu)(Identity<T>() - 1.));
+}
+
+/// \brief %Circuit computing a switch between value 0 for t <= a and x for t >= b
+template<typename T>
+GPAC<T> Lxh(T a, T b, T mu, T x) {
+	T delta = 0.5*(b-a);
+	T nu = mu + log(1. + x*x);
+	return x * Ip1(nu * (1./delta))(Identity<T>() - (a + b) / 2. + 1.);
+}
 	
+/// \brief %Circuit computing a switch between value x for t <= a and y for t >= b
+template<typename T>
+GPAC<T> Select(T a, T b, T mu, T x, T y) {
+	return x + Lxh<T>(a, b, mu, y-x);
+}
+
 /// \brief Returns a circuit computing the max of two circuits with error delta
 template<typename T>
 GPAC<T> Max(const GPAC<T> &X, const GPAC<T> &Y, T delta) {

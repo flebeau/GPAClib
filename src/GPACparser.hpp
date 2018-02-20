@@ -44,6 +44,7 @@ struct GPACLexer : lex::lexer<Lexer>
 		, op_prod ("\\*")
 		, op_int ("int")
 		, op_max ("max")
+		, op_select("select")
 		, semicol (";")
 		, comma (',')
 		, vert ("\\|")
@@ -51,7 +52,7 @@ struct GPACLexer : lex::lexer<Lexer>
 		, eq ('=')
 		, op_comp ('@')
 	{
-        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | op_max | col | semicol | comma | vert | eq | op_comp | identifier;
+        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | op_max | op_select | col | semicol | comma | vert | eq | op_comp | identifier;
         this->self("WS") = comment_line | white_space;
     }
 	lex::token_def<>            circuit, comment_line;
@@ -64,7 +65,7 @@ struct GPACLexer : lex::lexer<Lexer>
 	lex::token_def<unsigned>    integer;
 	lex::token_def<>            op_add, op_sub, op_div;
 	lex::token_def<>            op_prod;
-	lex::token_def<>            op_int, op_max;
+	lex::token_def<>            op_int, op_max, op_select;
 	lex::token_def<>            semicol, comma;
 	lex::token_def<>            vert;
 	lex::token_def<>            col;
@@ -190,6 +191,9 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			| (tok.op_max >> tok.lpar >> expression >> tok.comma >> expression >> tok.rpar)
 			  [qi::_val = "_max_" + spi::_3 + "_" + spi::_5,
 			   phx::ref(circuits)[qi::_val] = phx::bind(&Max<T>, phx::ref(circuits)[spi::_3], phx::ref(circuits)[spi::_5], 0.05)]
+			| (tok.op_select >> tok.lpar >> value >> tok.comma >> value >> tok.comma >> value >> tok.comma >> value >> tok.rpar)
+			  [qi::_val = "_select_" + phx::bind(&ToString<T>, spi::_3) + "_" + phx::bind(&ToString<T>, spi::_5) + "_" + phx::bind(&ToString<T>, spi::_7) + "_" + phx::bind(&ToString<T>, spi::_9),
+			   phx::ref(circuits)[qi::_val] = phx::bind(&Select<T>, spi::_3, spi::_5, 0.05, spi::_7, spi::_9)]
 			| (tok.identifier) [qi::_val = spi::_1]
 			| (value) [qi::_val = phx::bind(&ToString<T>, spi::_1),
 				           phx::ref(circuits)[qi::_val] = phx::bind(&GPAClib::Constant<T>, spi::_1),
