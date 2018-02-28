@@ -488,6 +488,44 @@ public:
 		ofs << toDot() << "\n";
 	}
 	
+	/// \brief Compute a latex code representing the PIVP corresponding to the circuit
+	/// \pre The circuit must be finalized!
+	std::string toLaTeX() const {
+		if (!finalized) {
+			CircuitErrorMessage() << "Cannot export to LaTeX a circuit if it is not finalized!";
+			exit(EXIT_FAILURE);
+		}
+		
+		std::stringstream res("");
+		std::map<std::string, unsigned> int_gate_numbers;
+		for (unsigned i = 0; i<int_gates.size(); ++i)
+			int_gate_numbers[int_gates[i]] = i+1;
+		
+		/* Add the header (standalone LaTeX file) */
+		res << "\\documentclass[preview]{standalone}\n"
+			<< "\\begin{document}\n"
+			<< "\\begin{equation}\n"
+			<< "\\begin{cases}\n";
+		
+		/* Add the pODE */
+		for (unsigned i = 0; i<int_gates.size(); ++i)
+			res << "x_{" << std::to_string(i+1) << "}' = "
+				<< toLaTeXGate(int_gate_numbers, asIntGate(int_gates[i])->X())
+				<< "\\\\" << "\n";
+		
+		/* Close the environments */
+		res << "\\end{cases}\n"
+			<< "\\end{equation}\n"
+			<< "\\end{document}\n";
+		return res.str();
+	}
+	
+	/// \brief Export the LaTeX representation to a file
+	void toLaTeX(std::string filename) const {
+		std::ofstream ofs(filename, std::ofstream::out);
+		ofs << toLaTeX() << "\n";
+	}
+	
 	/*! \brief Parenthesis operator for adding binary gates
 	 * \param gate_name Name of the gate to be added
 	 * \param op Symbol of the operator
@@ -1736,6 +1774,101 @@ protected:
 			return (x<y);
 		}
 	};
+	
+	/// Contains all the info about a term used for export to  LaTeX
+	class TermLaTeX {
+	public:
+		T constant_part;
+		std::string add_part;
+		std::map<unsigned, unsigned> variables;
+		
+		/// Constructor for a constant
+		TermLaTeX(double c) : constant_part(c), add_part(""), variables() {}
+		/// Constructor for a variable x_i, or t if i = 0
+		TermLaTeX(unsigned i) : constant_part(1), add_part(""), variables() {
+			variables[i]++;
+		}
+		TermLaTeX() : constant_part(1), add_part(""), variables() {}
+		
+		bool isConstant() const { return (add_part == "" && variables.size() == 0); }
+		bool isAdd() const { return (add_part != "" && variables.size() == 0); }
+		bool isProduct() const { return variables.size() > 0; }
+		
+		std::string toString() const {
+			
+		}
+		
+		/// Addition of two terms
+		TermLaTeX operator+(const TermLaTeX &T) {
+			TermLaTeX result;
+			result.add_part = toString() + T.toString();
+			return result;
+		}
+	};
+	
+	/// \brief Recursive method used for computing LaTeX expression of the circuit
+	std::string toLaTeXGate(const std::map<std::string, unsigned> &int_gate_numbers, std::string gate_name) const {
+		if (gate_name == "t")
+			return "t";
+		if (isConstantGate(gate_name))
+			return std::to_string(asConstantGate(gate_name)->Constant());
+		if (isIntGate(gate_name))
+			return "x_{" + std::to_string(int_gate_numbers.at(gate_name)) + "}";
+		const BinaryGate<T> *gate = asBinaryGate(gate_name);
+		if (isAddGate(gate_name)) {
+			std::string to_latex_x = toLaTeXGate(int_gate_numbers, gate->X());
+			std::string to_latex_y = toLaTeXGate(int_gate_numbers, gate->Y());
+			
+			if (to_latex_y.size() > 0 && to_latex_y[0] == '-')
+				return to_latex_x + " - " + to_latex_y.substr(1);
+			if (to_latex_y.size() > 0 && to_latex_y[0] != '-'
+				&& to_latex_x.size() > 0 && to_latex_x[0] == '-')
+				return to_latex_y + " - " + to_latex_x.substr(1);
+			
+			return to_latex_x + " + " + to_latex_y;
+		}
+		if (isProductGate(gate_name)) {
+			std::stringstream s("");
+			std::string X = gate->X();
+			std::string Y = gate->Y();
+			std::string to_latex_x = toLaTeXGate(int_gate_numbers, X);
+			std::string to_latex_y = toLaTeXGate(int_gate_numbers, Y);
+			
+			if (X == "t") {
+				std::swap(X, Y);
+				std::swap(to_latex_x, to_latex_y);
+			}
+			else if (Y != "t" && isConstantGate(Y)) {
+				std::swap(X, Y);
+				std::swap(to_latex_x, to_latex_y);
+			}
+			else if (Y != "t" && X != "t" && isAddGate(Y) && !isConstantGate(X)) {
+				std::swap(X, Y);
+				std::swap(to_latex_x, to_latex_y);
+			}
+			
+			if (X != "t" && isConstantGate(X) && asConstantGate(X)->Constant() == -1)
+				return "-" + to_latex_y;
+			if (Y != "t" && isConstantGate(Y) && asConstantGate(Y)->Constant() == -1)
+				return "-" + to_latex_x;
+			
+			if (X != "t" && Y != "t" && to_latex_y.size() > 0 && to_latex_y[0] == '-' && to_latex_x.size() > 0 && to_latex_x[0] == '-') {
+				to_latex_x = to_latex_x.substr(1);
+				to_latex_y = to_latex_y.substr(1);
+			}
+			
+			if (X != "t" && isAddGate(X))
+				s << "(" << to_latex_x << ")";
+			else 
+				s << to_latex_x;
+			if ((Y != "t" && isAddGate(Y)) || (to_latex_y.size() > 0 && to_latex_y[0] == '-'))
+				s << "(" << to_latex_y << ")";
+			else 
+				s << to_latex_y;
+			return s.str();				
+		}
+		return "";
+	}
 };
 
 /* ===== Extern operators ===== */

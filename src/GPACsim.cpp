@@ -21,11 +21,11 @@ GPAClib::GPAC<double> GracaImplementation();
 
 int main(int argc, char *argv[]) {
 	std::string filename;
-	bool simulate = true, simplification = true, to_dot = false, to_code = false;
+	bool simulate = true, simplification = true, to_dot = false, to_code = false, to_latex = false;
 	bool finalization = true;
 	double b = 5.;
 	double step = 0.001;
-	std::string output, dot_file;
+	std::string output, dot_file, latex_file;
 	
 	/* Handle program options */
 	namespace po = boost::program_options;
@@ -39,7 +39,8 @@ int main(int argc, char *argv[]) {
 			("output,o", po::value<std::string>(&output), "Output (pdf) file of the simulation")
 			("sup,b", po::value<double>(&b), b_descr.c_str())
 			("step,s", po::value<double>(&step), step_descr.c_str())
-			("to-dot,d", po::value<std::string>(&dot_file), "Generate a dot representation and export it in the specified file")
+			("to-dot,d", po::value<std::string>(&dot_file)->implicit_value(""), "Generate a dot representation and export it in the specified file")
+			("to-latex,d", po::value<std::string>(&latex_file)->implicit_value(""), "Generate a latex code representing the circuit and export it in the specified file")
 			("to-code", "Prints the C++ representation of the circuit")
 			("no-simulation", "Validate the circuit without simulating it")
 			("no-simplification", "Disable simplification of the circuit")
@@ -65,6 +66,8 @@ int main(int argc, char *argv[]) {
 			to_dot = true;
 		if (vm.count("to-code"))
 			to_code = true;
+		if (vm.count("to-latex"))
+			to_latex = true;
 		
 		po::notify(vm);
 	}
@@ -101,7 +104,16 @@ int main(int argc, char *argv[]) {
 		else
 			std::cout << circuit.toDot() << "\n";
 	}
-	else if (to_code)
+	
+	if (to_latex) {
+		if (latex_file != "") {
+			circuit.toLaTeX(latex_file);
+		}
+		else
+			std::cout << circuit.toLaTeX() << "\n";
+	}
+	
+	if (to_code)
 		std::cout << circuit.toCode() << "\n";
 	else
 		std::cout << circuit << "\n";

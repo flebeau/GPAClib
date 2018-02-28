@@ -92,7 +92,12 @@ public:
 	}
 	
 	/// Overloading parenthesis operator to compute the sum of the inputs
-    virtual T operator()(T x, T y) const {
+    T operator()(T x, T y) const {
+	    return x + y;
+	}
+	/// More general version of the parenthesis operator
+	template<typename U>
+	U operator()(U x, U y) const {
 	    return x + y;
 	}
 };
@@ -115,6 +120,11 @@ public:
     /// Overloading parenthesis operator to compute the product of the inputs
 	virtual T operator()(T x, T y) const {
 		return x * y;
+	}
+	/// More general version of the parenthesis operator
+	template<typename U>
+	U operator()(U x, U y) const {
+	    return x * y;
 	}
 };
 
