@@ -315,6 +315,14 @@ public:
 		const BinaryGate<T> *gate = asBinaryGate(gate_name);
 		return (isCombinationConstantGates(gate->X()) && isCombinationConstantGates(gate->Y()));
 	}
+	/// \brief Returns the value of the gate as a constant
+	/// \pre The gate named `gate_name` must be a combination of constant gates
+	T valueCombinationConstantGates(std::string gate_name) const {
+		if (isConstantGate(gate_name))
+			return asConstantGate(gate_name)->Constant();
+		const BinaryGate<T> *gate = asBinaryGate(gate_name);
+		return gate->operator()(valueCombinationConstantGates(gate->X()), valueCombinationConstantGates(gate->Y()));
+	}
 	
 	/// \brief Returns true if the target gate is a binary gate
 	/// \pre A gate named `gate_name` must exist in the circuit.
@@ -388,7 +396,7 @@ public:
 	 * point to the corresponding gate. The output gate is highlighted in red and doubled rectangle.
 	 * For integration gates, the input corresponding to the integration variable are drawn dashed.
 	 */
-	std::string toDot() const {
+	std::string toDot(bool show_int_gates_number = true) const {
 		std::stringstream res("");
 		
 		/* Identify different types of gates */
@@ -453,7 +461,7 @@ public:
 		}
 		
 		// Integration gates
-		if (integration_names.size() > 0) {
+		/*if (integration_names.size() > 0) {
 			res << "\tnode [label = \"∫\"];\n";
 			for (const auto &gate_name: integration_names) {
 				res << "\t" << gate_name;
@@ -462,6 +470,16 @@ public:
 				res << ";\n";
 			}
 			res << "\n";
+			}*/
+		for (unsigned i = 0; i<integration_names.size(); ++i) {
+			res << "\tnode [label = \"∫";
+			if (show_int_gates_number)
+				res << "_" << i+1;
+			res << "\"];";
+			res << integration_names[i];
+			if (output_gate == integration_names[i])
+					res << " [color = red, fontcolor = red, peripheries = 2]";
+			res << ";\n";
 		}
 		
 		/* Now define edges */
@@ -502,20 +520,25 @@ public:
 			int_gate_numbers[int_gates[i]] = i+1;
 		
 		/* Add the header (standalone LaTeX file) */
-		res << "\\documentclass[preview]{standalone}\n"
+		res << "\\documentclass[varwidth=\\maxdimen, preview]{standalone}\n"
+			<< "\\usepackage{amsmath}\n"
 			<< "\\begin{document}\n"
-			<< "\\begin{equation}\n"
+			<< "\\begin{equation*}\n"
 			<< "\\begin{cases}\n";
 		
 		/* Add the pODE */
 		for (unsigned i = 0; i<int_gates.size(); ++i)
 			res << "x_{" << std::to_string(i+1) << "}' = "
-				<< toLaTeXGate(int_gate_numbers, asIntGate(int_gates[i])->X())
+				<< toTermLaTeXGate(int_gate_numbers, asIntGate(int_gates[i])->X()).toString()
 				<< "\\\\" << "\n";
+		
+		res << "y = "
+			<< toTermLaTeXGate(int_gate_numbers, output_gate).toString()
+			<< "\\\\\n";
 		
 		/* Close the environments */
 		res << "\\end{cases}\n"
-			<< "\\end{equation}\n"
+			<< "\\end{equation*}\n"
 			<< "\\end{document}\n";
 		return res.str();
 	}
@@ -844,6 +867,24 @@ public:
 		unsigned n_deletions = 0;
 		if (finalized)
 			return *this;
+		
+		/* Replace all gates corresponding to constants by constant gates, e.g. (1+1) -> 2 */
+		for (auto &g : gates) {
+			if (isCombinationConstantGates(g.first))
+				g.second.reset(new ConstantGate<T>(valueCombinationConstantGates(g.first)));
+		}
+		
+		/* Delete all gates that are not linked to the output */
+		std::set<std::string> useless_gates;
+		for (const auto &g : gates)
+			useless_gates.insert(g.first);
+		if (useless_gates.count(output_gate) > 0) {
+			useless_gates.erase(output_gate);
+			findUselessGates(useless_gates, output_gate);
+		}
+		for (const auto &g_name : useless_gates)
+			eraseGate(g_name);
+		
 		/* Sort inputs of symmetric binary gates (i.e. addition and product) so that they always are in the same order */
 		for (const auto &g : gates) {
 			if (isAddGate(g.first) || isProductGate(g.first)) {
@@ -1775,12 +1816,12 @@ protected:
 		}
 	};
 	
-	/// Contains all the info about a term used for export to  LaTeX
+	/// Contains all the info about a term written in product form for export to  LaTeX
 	class TermLaTeX {
 	public:
-		T constant_part;
-		std::string add_part;
-		std::map<unsigned, unsigned> variables;
+		T constant_part; ///!< Multiplicative constant
+		std::string add_part; ///!< Multiplicative factors that are additions
+		std::map<unsigned, unsigned> variables; ///!< Variables appearing in the product with their multiplicities (including t)
 		
 		/// Constructor for a constant
 		TermLaTeX(double c) : constant_part(c), add_part(""), variables() {}
@@ -1794,80 +1835,100 @@ protected:
 		bool isAdd() const { return (add_part != "" && variables.size() == 0); }
 		bool isProduct() const { return variables.size() > 0; }
 		
-		std::string toString() const {
-			
+		/// Returns the string correponding to the term
+		std::string toString(bool with_add_constants = false) const {
+			if (constant_part == 0)
+				return "0";
+			std::stringstream s("");
+			if (!isConstant() && constant_part == -1)
+				s << "-";
+			else if (isConstant() || constant_part != 1)
+				s << constant_part;
+			s << add_part;
+			for (const auto &v : variables) {
+				if (v.first == 0) // Skip t because we want to add it at the end
+					continue;
+				s << "x_{" << v.first << "}";
+				if (v.second > 1)
+					s << "^{" << v.second << "}"; 
+			}
+			if (variables.count(0) > 0 && variables.at(0) > 0) {
+				s << "t";
+				if (variables.at(0) > 1)
+					s << "^{" << variables.at(0) << "}";
+			}
+			return s.str();
 		}
 		
 		/// Addition of two terms
-		TermLaTeX operator+(const TermLaTeX &T) {
+		TermLaTeX operator+(const TermLaTeX &term) const {
+			if (isConstant() && term.isConstant())
+				return TermLaTeX(static_cast<T>(constant_part + term.constant_part));
+			
 			TermLaTeX result;
-			result.add_part = toString() + T.toString();
+			if (term.constant_part < 0) {
+				TermLaTeX term2 = term;
+				term2.constant_part *= -1;
+				result.add_part = toString() + " - " + term2.toString();
+			}
+			else
+				result.add_part = toString() + " + " + term.toString();
+			return result;
+		}
+		
+		/// Product of two terms
+		TermLaTeX operator*(const TermLaTeX &term) const {
+			TermLaTeX result;
+			result.constant_part = constant_part * term.constant_part; // Multiply constants
+			if (add_part.size() > 0 && add_part[0] != '(') // Multiply add parts and add parenthesis if needed
+				result.add_part += "(" + add_part + ")";
+			else
+				result.add_part += add_part;
+			if (term.add_part.size() > 0 && term.add_part[0] != '(')
+				result.add_part += "(" + term.add_part + ")";
+			else
+				result.add_part += term.add_part;
+			result.variables = variables; // Copy variable map
+			for (const auto &v : term.variables) {
+				result.variables[v.first] += v.second;
+			}
 			return result;
 		}
 	};
 	
-	/// \brief Recursive method used for computing LaTeX expression of the circuit
-	std::string toLaTeXGate(const std::map<std::string, unsigned> &int_gate_numbers, std::string gate_name) const {
+	/// Recursive function to determine the Term corresponding to the given gate
+	TermLaTeX toTermLaTeXGate(const std::map<std::string, unsigned> &int_gate_numbers, std::string gate_name) const {
 		if (gate_name == "t")
-			return "t";
+			return TermLaTeX(static_cast<unsigned>(0));
 		if (isConstantGate(gate_name))
-			return std::to_string(asConstantGate(gate_name)->Constant());
+			return TermLaTeX(static_cast<T>(asConstantGate(gate_name)->Constant()));
 		if (isIntGate(gate_name))
-			return "x_{" + std::to_string(int_gate_numbers.at(gate_name)) + "}";
+			return TermLaTeX(static_cast<unsigned>(int_gate_numbers.at(gate_name)));
 		const BinaryGate<T> *gate = asBinaryGate(gate_name);
-		if (isAddGate(gate_name)) {
-			std::string to_latex_x = toLaTeXGate(int_gate_numbers, gate->X());
-			std::string to_latex_y = toLaTeXGate(int_gate_numbers, gate->Y());
-			
-			if (to_latex_y.size() > 0 && to_latex_y[0] == '-')
-				return to_latex_x + " - " + to_latex_y.substr(1);
-			if (to_latex_y.size() > 0 && to_latex_y[0] != '-'
-				&& to_latex_x.size() > 0 && to_latex_x[0] == '-')
-				return to_latex_y + " - " + to_latex_x.substr(1);
-			
-			return to_latex_x + " + " + to_latex_y;
+		if (isAddGate(gate_name))
+			return (toTermLaTeXGate(int_gate_numbers, gate->X()) + toTermLaTeXGate(int_gate_numbers, gate->Y()));
+	    return (toTermLaTeXGate(int_gate_numbers, gate->X()) * toTermLaTeXGate(int_gate_numbers, gate->Y()));
+	}
+	
+	/// Recursive function to determine gates that are not linked to the given gate
+	void findUselessGates(std::set<std::string> &gates, std::string gate_name) const {
+		if (gate_name == "t" || isConstantGate(gate_name))
+			return;
+		const BinaryGate<T> *gate = asBinaryGate(gate_name);
+		bool treat_X = false;
+		bool treat_Y = false;
+		if (gates.count(gate->X())) {
+			gates.erase(gate->X());
+			treat_X = true;
 		}
-		if (isProductGate(gate_name)) {
-			std::stringstream s("");
-			std::string X = gate->X();
-			std::string Y = gate->Y();
-			std::string to_latex_x = toLaTeXGate(int_gate_numbers, X);
-			std::string to_latex_y = toLaTeXGate(int_gate_numbers, Y);
-			
-			if (X == "t") {
-				std::swap(X, Y);
-				std::swap(to_latex_x, to_latex_y);
-			}
-			else if (Y != "t" && isConstantGate(Y)) {
-				std::swap(X, Y);
-				std::swap(to_latex_x, to_latex_y);
-			}
-			else if (Y != "t" && X != "t" && isAddGate(Y) && !isConstantGate(X)) {
-				std::swap(X, Y);
-				std::swap(to_latex_x, to_latex_y);
-			}
-			
-			if (X != "t" && isConstantGate(X) && asConstantGate(X)->Constant() == -1)
-				return "-" + to_latex_y;
-			if (Y != "t" && isConstantGate(Y) && asConstantGate(Y)->Constant() == -1)
-				return "-" + to_latex_x;
-			
-			if (X != "t" && Y != "t" && to_latex_y.size() > 0 && to_latex_y[0] == '-' && to_latex_x.size() > 0 && to_latex_x[0] == '-') {
-				to_latex_x = to_latex_x.substr(1);
-				to_latex_y = to_latex_y.substr(1);
-			}
-			
-			if (X != "t" && isAddGate(X))
-				s << "(" << to_latex_x << ")";
-			else 
-				s << to_latex_x;
-			if ((Y != "t" && isAddGate(Y)) || (to_latex_y.size() > 0 && to_latex_y[0] == '-'))
-				s << "(" << to_latex_y << ")";
-			else 
-				s << to_latex_y;
-			return s.str();				
+		if (gates.count(gate->Y())) {
+			gates.erase(gate->Y());
+			treat_Y = true;
 		}
-		return "";
+		if (treat_X)
+			findUselessGates(gates, gate->X());
+		if (treat_Y)
+			findUselessGates(gates, gate->Y());
 	}
 };
 

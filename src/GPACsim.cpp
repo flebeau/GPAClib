@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 			("sup,b", po::value<double>(&b), b_descr.c_str())
 			("step,s", po::value<double>(&step), step_descr.c_str())
 			("to-dot,d", po::value<std::string>(&dot_file)->implicit_value(""), "Generate a dot representation and export it in the specified file")
-			("to-latex,d", po::value<std::string>(&latex_file)->implicit_value(""), "Generate a latex code representing the circuit and export it in the specified file")
+			("to-latex,l", po::value<std::string>(&latex_file)->implicit_value(""), "Generate a latex code representing the circuit and export it in the specified file")
 			("to-code", "Prints the C++ representation of the circuit")
 			("no-simulation", "Validate the circuit without simulating it")
 			("no-simplification", "Disable simplification of the circuit")
@@ -82,11 +82,11 @@ int main(int argc, char *argv[]) {
 	}
 	
 	//GPAClib::GPAC<double> circuit = GracaImplementation();
-	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
+	//GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
 	
     //GPAClib::GPAC<double> circuit = GPAClib::L2<double>(20. * GPAClib::Exp<double>());
-	//GPAClib::GPAC<double> circuit = 
-	//	GPAClib::Switching<double>(1. + GPAClib::Identity<double>(), 1.+2.*GPAClib::Identity<double>(), (0.5 * (1. + GPAClib::Sin<double>()(2. * boost::math::constants::pi<double>() * GPAClib::Identity<double>()))), 0.5);
+	GPAClib::GPAC<double> circuit = 
+		GPAClib::Switching<double>(1. + GPAClib::Identity<double>(), 1.+2.*GPAClib::Identity<double>(), (0.5 * (1. + GPAClib::Sin<double>()(2. * boost::math::constants::pi<double>() * GPAClib::Identity<double>()))), 0.5);
 	//GPAClib::GPAC<double> circuit = GPAClib::Max<double>(GPAClib::Cos<double>(), GPAClib::Sin<double>(), 0.05);
 	
 	if (circuit.Output() == "") {
