@@ -1844,7 +1844,10 @@ protected:
 				s << "-";
 			else if (isConstant() || constant_part != 1)
 				s << constant_part;
-			s << add_part;
+			if (constant_part != 1 && add_part.size() > 0 && add_part[0] != '(')
+				s << "(" << add_part << ")";
+			else
+				s << add_part;
 			for (const auto &v : variables) {
 				if (v.first == 0) // Skip t because we want to add it at the end
 					continue;
@@ -1880,14 +1883,16 @@ protected:
 		TermLaTeX operator*(const TermLaTeX &term) const {
 			TermLaTeX result;
 			result.constant_part = constant_part * term.constant_part; // Multiply constants
-			if (add_part.size() > 0 && add_part[0] != '(') // Multiply add parts and add parenthesis if needed
-				result.add_part += "(" + add_part + ")";
+			std::string add_part1 = add_part;
+			std::string add_part2 = term.add_part;
+			if (add_part1.size() > 0 && add_part1[0] != '(' && add_part2 != "") // Multiply add parts and add parenthesis if needed
+				result.add_part += "(" + add_part1 + ")";
 			else
-				result.add_part += add_part;
-			if (term.add_part.size() > 0 && term.add_part[0] != '(')
-				result.add_part += "(" + term.add_part + ")";
+				result.add_part += add_part1;
+			if (add_part2.size() > 0 && add_part2[0] != '(' && add_part1 != "")
+				result.add_part += "(" + add_part2 + ")";
 			else
-				result.add_part += term.add_part;
+				result.add_part += add_part2;
 			result.variables = variables; // Copy variable map
 			for (const auto &v : term.variables) {
 				result.variables[v.first] += v.second;

@@ -82,11 +82,11 @@ int main(int argc, char *argv[]) {
 	}
 	
 	//GPAClib::GPAC<double> circuit = GracaImplementation();
-	//GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
+	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
 	
     //GPAClib::GPAC<double> circuit = GPAClib::L2<double>(20. * GPAClib::Exp<double>());
-	GPAClib::GPAC<double> circuit = 
-		GPAClib::Switching<double>(1. + GPAClib::Identity<double>(), 1.+2.*GPAClib::Identity<double>(), (0.5 * (1. + GPAClib::Sin<double>()(2. * boost::math::constants::pi<double>() * GPAClib::Identity<double>()))), 0.5);
+	//GPAClib::GPAC<double> circuit = 
+	//	GPAClib::Switching<double>(1. + GPAClib::Identity<double>(), 1.+2.*GPAClib::Identity<double>(), (0.5 * (1. + GPAClib::Sin<double>()(2. * boost::math::constants::pi<double>() * GPAClib::Identity<double>()))), 0.5);
 	//GPAClib::GPAC<double> circuit = GPAClib::Max<double>(GPAClib::Cos<double>(), GPAClib::Sin<double>(), 0.05);
 	
 	if (circuit.Output() == "") {
