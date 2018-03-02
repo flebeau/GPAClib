@@ -1820,19 +1820,19 @@ protected:
 	class TermLaTeX {
 	public:
 		T constant_part; ///!< Multiplicative constant
-		std::string add_part; ///!< Multiplicative factors that are additions
+		std::map<std::string, unsigned> add_part; ///!< Multiplicative factors that are additions
 		std::map<unsigned, unsigned> variables; ///!< Variables appearing in the product with their multiplicities (including t)
 		
 		/// Constructor for a constant
-		TermLaTeX(double c) : constant_part(c), add_part(""), variables() {}
+		TermLaTeX(double c) : constant_part(c), add_part(), variables() {}
 		/// Constructor for a variable x_i, or t if i = 0
-		TermLaTeX(unsigned i) : constant_part(1), add_part(""), variables() {
+		TermLaTeX(unsigned i) : constant_part(1), add_part(), variables() {
 			variables[i]++;
 		}
-		TermLaTeX() : constant_part(1), add_part(""), variables() {}
+		TermLaTeX() : constant_part(1), add_part(), variables() {}
 		
-		bool isConstant() const { return (add_part == "" && variables.size() == 0); }
-		bool isAdd() const { return (add_part != "" && variables.size() == 0); }
+		bool isConstant() const { return (add_part.size() == 0 && variables.size() == 0); }
+		bool isAdd() const { return (add_part.size() > 0 && variables.size() == 0); }
 		bool isProduct() const { return variables.size() > 0; }
 		
 		/// Returns the string correponding to the term
@@ -1844,10 +1844,14 @@ protected:
 				s << "-";
 			else if (isConstant() || constant_part != 1)
 				s << constant_part;
-			if (constant_part != 1 && add_part.size() > 0 && add_part[0] != '(')
-				s << "(" << add_part << ")";
-			else
-				s << add_part;
+			for (const auto &a : add_part) {
+				if ((constant_part != 1 || variables.size() > 0 || add_part.size() > 1 || a.second > 1) && a.first.size() > 0 && a.first[0] != '(')
+					s << "(" << a.first << ")";
+				else
+					s << a.first;
+				if (a.second > 1)
+					s << "^{" << a.second << "}";
+			}
 			for (const auto &v : variables) {
 				if (v.first == 0) // Skip t because we want to add it at the end
 					continue;
@@ -1872,10 +1876,10 @@ protected:
 			if (term.constant_part < 0) {
 				TermLaTeX term2 = term;
 				term2.constant_part *= -1;
-				result.add_part = toString() + " - " + term2.toString();
+				result.add_part[toString() + " - " + term2.toString()] = 1;
 			}
 			else
-				result.add_part = toString() + " + " + term.toString();
+				result.add_part[toString() + " + " + term.toString()] = 1;
 			return result;
 		}
 		
@@ -1883,16 +1887,12 @@ protected:
 		TermLaTeX operator*(const TermLaTeX &term) const {
 			TermLaTeX result;
 			result.constant_part = constant_part * term.constant_part; // Multiply constants
-			std::string add_part1 = add_part;
-			std::string add_part2 = term.add_part;
-			if (add_part1.size() > 0 && add_part1[0] != '(' && add_part2 != "") // Multiply add parts and add parenthesis if needed
-				result.add_part += "(" + add_part1 + ")";
-			else
-				result.add_part += add_part1;
-			if (add_part2.size() > 0 && add_part2[0] != '(' && add_part1 != "")
-				result.add_part += "(" + add_part2 + ")";
-			else
-				result.add_part += add_part2;
+			
+			result.add_part = add_part; // Copy addition part
+			for (const auto &a : term.add_part) {
+				result.add_part[a.first] += a.second;
+			}
+			
 			result.variables = variables; // Copy variable map
 			for (const auto &v : term.variables) {
 				result.variables[v.first] += v.second;
