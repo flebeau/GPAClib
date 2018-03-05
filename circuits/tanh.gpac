@@ -1,0 +1,8 @@
+Circuit Tanh:
+	c: 1
+	c2: -1
+	p: tanh * tanh
+	p2: p * c2
+	a: c + p2
+	tanh: int a d(t) | 0
+;

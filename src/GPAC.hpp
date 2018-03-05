@@ -396,7 +396,7 @@ public:
 	 * point to the corresponding gate. The output gate is highlighted in red and doubled rectangle.
 	 * For integration gates, the input corresponding to the integration variable are drawn dashed.
 	 */
-	std::string toDot(bool show_int_gates_number = true) const {
+	std::string toDot(bool show_int_gates_number = false) const {
 		std::stringstream res("");
 		
 		/* Identify different types of gates */
