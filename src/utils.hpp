@@ -1,7 +1,7 @@
 /*!
  * \file utils.hpp
  * \brief Some useful classes, mostly for pretty printing
- * \authpr Fabrice L.
+ * \author Fabrice L.
  */
 #ifndef UTILS_HPP
 #define UTILS_HPP

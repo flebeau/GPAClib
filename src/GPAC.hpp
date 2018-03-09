@@ -143,7 +143,7 @@ public:
 	 * Add an addition gate to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-	std::string addAddGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addAddGate(std::string gate_name, std::string x, std::string y, bool validate = true, bool import_id = false) {
 		finalized = false;
 		if (gate_name == "")
 			gate_name = getNewGateName();
@@ -155,7 +155,8 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new AddGate<T>(x,y));
-		ensureNewGateIdLargeEnough(gate_name);
+		if (import_id)
+			ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -169,7 +170,7 @@ public:
 	 * Add a product gate to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-	std::string addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addProductGate(std::string gate_name, std::string x, std::string y, bool validate = true, bool import_id = false) {
 		finalized = false;
 		if (gate_name == "")
 			gate_name = getNewGateName();
@@ -181,7 +182,8 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ProductGate<T>(x,y));
-		ensureNewGateIdLargeEnough(gate_name);
+		if (import_id)
+			ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -195,7 +197,7 @@ public:
 	 * Add an integration to the circuit with specified name and inputs. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-	std::string addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true) {
+	std::string addIntGate(std::string gate_name, std::string x, std::string y, bool validate = true, bool import_id = false) {
 		finalized = false;
 		if (gate_name == "")
 			gate_name = getNewGateName();
@@ -212,7 +214,8 @@ public:
 		else {
 			gates[gate_name] = std::unique_ptr<Gate>(new IntGate<T>(x,y));
 		}
-		ensureNewGateIdLargeEnough(gate_name);
+		if (import_id)
+			ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -225,7 +228,7 @@ public:
 	 * Add a constant gate to the circuit with specified name and value. If there is already a gate
 	 * with the given name, a warning is issued and the existing gate is overwritten.
 	 */
-	std::string addConstantGate(std::string gate_name, T value, bool validate = true) {
+	std::string addConstantGate(std::string gate_name, T value, bool validate = true, bool import_id = false) {
 		finalized = false;
 		if (gate_name == "")
 			gate_name = getNewGateName();
@@ -237,7 +240,8 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ConstantGate<T>(value));
-		ensureNewGateIdLargeEnough(gate_name);
+		if (import_id)
+			ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -567,11 +571,11 @@ public:
 	 */
 	GPAC<T> &operator()(std::string gate_name, std::string op, std::string x, std::string y) {
 		if (op == "a" || op == "A" || op == "+")
-			addAddGate(gate_name, x, y);
+			addAddGate(gate_name, x, y, true, true);
 		else if (op == "p" || op == "P" || op == "x" || op == "X" || op == "*")
-			addProductGate(gate_name, x, y);
+			addProductGate(gate_name, x, y, true, true);
 		else if (op == "i" || op == "I")
-			addIntGate(gate_name, x, y);
+			addIntGate(gate_name, x, y, true, true);
 		else {
 			CircuitWarningMessage() << op << " is not a valid operation, it is skipped.";
 		}
@@ -582,7 +586,7 @@ public:
 	 * \param value Value of the constant gate to be added
 	 */
 	GPAC<T> &operator()(std::string gate_name, T value) {
-		addConstantGate(gate_name, value);
+		addConstantGate(gate_name, value, true, true);
 		return *this;
 	}
 	
@@ -2208,6 +2212,34 @@ GPAC<T> L2(T alpha) {
 	
 	return res;
 }
+	
+template<typename T>
+GPAC<T> L2() {
+	GPAC<T> circuit("L2", true, true);
+	
+	circuit
+	("L2_a", "*", "L2_f", "L2_der")
+	("L2_b", "*", "L2_f", "L2_p3")
+	("L2_d", 0.31831)
+	("L2_e", "*", "L2_d", "L2_arctan")
+	("L2_g", 0.5)
+	("L2_h", "+", "L2_e", "L2_g")
+	("L2_i", -0.5)
+	("L2_j", "+", "L2_i", "t")
+	("L2_f", 80)
+	("L2_k", "*", "L2_j", "L2_f")
+	("L2_arctan", "I", "L2_a", "t")
+	("L2_c", -2)
+	("L2_der", "I", "L2_b", "t")
+	("L2_p1", "*", "L2_k", "L2_c")
+	("L2_p2", "*", "L2_der", "L2_der")
+	("L2_p3", "*", "L2_p1", "L2_p2");
+	circuit.setOutput("L2_h");
+	circuit.setInitValue("L2_arctan", -1.5458);
+	circuit.setInitValue("L2_der", 0.00062461);
+	
+	return circuit;
+}
 
 /*! \brief %Circuit useful for reducing errors
  * \param circuit Circuit computing the error-controlling function
@@ -2270,22 +2302,41 @@ GPAC<T> Upsilon() {
 /// \brief %Circuit apprixmating rounding function
 template<typename T>
 GPAC<T> Round() {
-	GPAC<T> res = Identity<T>() - 0.2 * Sin<T>()(2 * boost::math::constants::pi<T>() * Identity<T>());
+	/*GPAC<T> res = Identity<T>() - 0.2 * Sin<T>()(2 * boost::math::constants::pi<T>() * Identity<T>());
 	res.rename("Round");
-	return res;
+	return res;*/
+	GPAC<T> circuit("Round", true, true);
+	
+	circuit
+	("Round_a", 0.2)
+	("Round_b", "*", "Round_a", "Round_sin")
+	("Round_d", "*", "Round_b", "Round_sin_c")
+	("Round_e", "+", "Round_d", "t")
+	("Round_f", 6.28319)
+	("Round_g", "*", "Round_f", "Round_sin_P")
+	("Round_h", "*", "Round_f", "Round_cos")
+	("Round_cos", "I", "Round_g", "t")
+	("Round_sin", "I", "Round_h", "t")
+	("Round_sin_P", "*", "Round_sin", "Round_sin_c")
+	("Round_sin_c", -1);
+	circuit.setOutput("Round_e");
+	circuit.setInitValue("Round_cos", 1);
+	circuit.setInitValue("Round_sin", 0);
+	
+	return circuit;
 }
 	
 /// \brief %Circuit approximating the mod 10 function
 template<typename T>
 GPAC<T> Mod10() {
-	GPAC<T> csin = Sin<T>();
+	/*GPAC<T> csin = Sin<T>();
 	GPAC<T> ccos = Cos<T>();
 	GPAC<T> ct = Identity<T>();
 	GPAC<T> res("Mod10", true, true);
 
 	using namespace boost::numeric::ublas;
 	
-	/* Compute coefficients for trigonometric interpolation */
+	// Compute coefficients for trigonometric interpolation
 	matrix<T> A(10,10);
 	vector<T> y(10);
 	T pi = boost::math::constants::pi<T>();
@@ -2309,7 +2360,69 @@ GPAC<T> Mod10() {
 		res += y(4+j) * csin(j * (pi / 5.) * ct);
 	}
 	
-	return res;
+	return res;*/
+	GPAC<T> circuit("Mod10", true, true);
+	circuit
+	("Mod10_10", -0.5)("Mod10_11", "*", "Mod10_10", "Mod10_19")
+	("Mod10_12", "+", "Mod10_11", "Mod10_c")("Mod10_13", 0.628319)
+	("Mod10_15", "*", "Mod10_13", "Mod10_40")("Mod10_16", "*", "Mod10_13", "Mod10_30")
+	("Mod10_17", -1)("Mod10_18", "*", "Mod10_17", "Mod10_30")
+	("Mod10_19", "I", "Mod10_8", "t")("Mod10_20", "*", "Mod10_cos_c", "Mod10_22")
+	("Mod10_22", "I", "Mod10_9", "t")("Mod10_23", "+", "Mod10_12", "Mod10_18")
+	("Mod10_26", "*", "Mod10_13", "Mod10_52")("Mod10_27", "*", "Mod10_13", "Mod10_39")
+	("Mod10_28", -3.07768)("Mod10_29", "*", "Mod10_28", "Mod10_42")
+	("Mod10_30", "I", "Mod10_15", "t")("Mod10_31", "I", "Mod10_16", "t")
+	("Mod10_32", "+", "Mod10_23", "Mod10_29")("Mod10_33", 1.25664)
+	("Mod10_35", "*", "Mod10_33", "Mod10_61")("Mod10_36", "*", "Mod10_33", "Mod10_50")
+	("Mod10_37", -1)("Mod10_38", "*", "Mod10_37", "Mod10_50")
+	("Mod10_39", "I", "Mod10_26", "t")("Mod10_40", "*", "Mod10_31", "Mod10_cos_c")
+	("Mod10_42", "I", "Mod10_27", "t")("Mod10_43", "+", "Mod10_32", "Mod10_38")
+	("Mod10_46", "*", "Mod10_33", "Mod10_73")("Mod10_47", "*", "Mod10_33", "Mod10_60")
+	("Mod10_48", -1.37638)("Mod10_49", "*", "Mod10_48", "Mod10_63")
+	("Mod10_50", "I", "Mod10_35", "t")("Mod10_51", "I", "Mod10_36", "t")
+	("Mod10_52", "*", "Mod10_42", "Mod10_cos_c")("Mod10_54", "+", "Mod10_43", "Mod10_49")
+	("Mod10_55", 1.88496)("Mod10_57", "*", "Mod10_55", "Mod10_82")
+	("Mod10_58", "*", "Mod10_55", "Mod10_71")("Mod10_59", "*", "Mod10_71", "Mod10_cos_c")
+	("Mod10_6", 3.14159)("Mod10_60", "I", "Mod10_46", "t")
+	("Mod10_61", "*", "Mod10_51", "Mod10_cos_c")("Mod10_63", "I", "Mod10_47", "t")
+	("Mod10_64", "+", "Mod10_54", "Mod10_59")("Mod10_67", "*", "Mod10_55", "Mod10_94")
+	("Mod10_68", "*", "Mod10_55", "Mod10_81")("Mod10_69", -0.726543)
+	("Mod10_70", "*", "Mod10_69", "Mod10_84")("Mod10_71", "I", "Mod10_57", "t")
+	("Mod10_72", "I", "Mod10_58", "t")("Mod10_73", "*", "Mod10_63", "Mod10_cos_c")
+	("Mod10_75", "+", "Mod10_64", "Mod10_70")("Mod10_76", 2.51327)
+	("Mod10_78", "*", "Mod10_76", "Mod10_cos_P")("Mod10_79", "*", "Mod10_76", "Mod10_92")
+	("Mod10_8", "*", "Mod10_20", "Mod10_6")("Mod10_80", "*", "Mod10_92", "Mod10_cos_c")
+	("Mod10_81", "I", "Mod10_67", "t")("Mod10_82", "*", "Mod10_72", "Mod10_cos_c")
+	("Mod10_84", "I", "Mod10_68", "t")("Mod10_85", "+", "Mod10_75", "Mod10_80")
+	("Mod10_88", "*", "Mod10_76", "Mod10_sin_P")("Mod10_89", "*", "Mod10_76", "Mod10_cos")
+	("Mod10_9", "*", "Mod10_19", "Mod10_6")("Mod10_90", -0.32492)
+	("Mod10_91", "*", "Mod10_90", "Mod10_sin")("Mod10_92", "I", "Mod10_78", "t")
+	("Mod10_93", "I", "Mod10_79", "t")("Mod10_94", "*", "Mod10_84", "Mod10_cos_c")
+	("Mod10_96", "+", "Mod10_85", "Mod10_91")("Mod10_c", 4.5)
+	("Mod10_cos", "I", "Mod10_88", "t")("Mod10_cos_P", "*", "Mod10_93", "Mod10_cos_c")
+	("Mod10_cos_c", -1)("Mod10_sin", "I", "Mod10_89", "t")
+	("Mod10_sin_P", "*", "Mod10_sin", "Mod10_cos_c");
+	circuit.setOutput("Mod10_96");
+	circuit.setInitValue("Mod10_19", 1);
+	circuit.setInitValue("Mod10_22", 0);
+	circuit.setInitValue("Mod10_30", 1);
+	circuit.setInitValue("Mod10_31", 0);
+	circuit.setInitValue("Mod10_39", 1);
+	circuit.setInitValue("Mod10_42", 0);
+	circuit.setInitValue("Mod10_50", 1);
+	circuit.setInitValue("Mod10_51", 0);
+	circuit.setInitValue("Mod10_60", 1);
+	circuit.setInitValue("Mod10_63", 0);
+	circuit.setInitValue("Mod10_71", 1);
+	circuit.setInitValue("Mod10_72", 0);
+	circuit.setInitValue("Mod10_81", 1);
+	circuit.setInitValue("Mod10_84", 0);
+	circuit.setInitValue("Mod10_92", 1);
+	circuit.setInitValue("Mod10_93", 0);
+	circuit.setInitValue("Mod10_cos", 1);
+	circuit.setInitValue("Mod10_sin", 0);
+	
+	return circuit;
 }
 	
 /** Functions defined in Amaury Pouly's thesis **/
@@ -2318,6 +2431,28 @@ GPAC<T> Mod10() {
 template<typename T>
 GPAC<T> Abs(T delta) {
 	return delta + Tanh<T>()((1./delta) * Identity<T>()) * Identity<T>();
+}
+
+template<typename T>
+GPAC<T> Abs() {
+	GPAC<T> circuit("Abs", true, true);
+	
+	circuit
+	("Abs_Tanh_a", "+", "Abs_Tanh_c1", "Abs_Tanh_p2")
+	("Abs_Tanh_c1", 1)
+	("Abs_Tanh_c2", -1)
+	("Abs_Tanh_out", "I", "Abs_f", "t")
+	("Abs_Tanh_p1", "*", "Abs_Tanh_out", "Abs_Tanh_out")
+	("Abs_Tanh_p2", "*", "Abs_Tanh_c2", "Abs_Tanh_p1")
+	("Abs_a", "*", "Abs_Tanh_out", "t")
+	("Abs_b", 0.05)
+	("Abs_d", "+", "Abs_a", "Abs_b")
+	("Abs_e", 20)
+	("Abs_f", "*", "Abs_Tanh_a", "Abs_e");
+	circuit.setOutput("Abs_d");
+	circuit.setInitValue("Abs_Tanh_out", 0);
+	
+	return circuit;
 }
 
 /// \brief %Circuit computing the sign function

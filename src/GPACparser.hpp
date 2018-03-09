@@ -111,11 +111,11 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		circuits["Id"] = GPAClib::Identity<T>();
 		circuits["Inverse"] = GPAClib::Inverse<T>();
 		circuits["Sqrt"] = GPAClib::Sqrt<T>();
-		circuits["L2"] = GPAClib::L2<T>(0.05);
+		circuits["L2"] = GPAClib::L2<T>();
 		circuits["Round"] = GPAClib::Round<T>();
 		circuits["Mod10"] = GPAClib::Mod10<T>();
 		circuits["Upsilon"] = GPAClib::Upsilon<T>();
-		circuits["Abs"] = GPAClib::Abs<T>(0.05);
+		circuits["Abs"] = GPAClib::Abs<T>();
 		circuits["t"] = GPAClib::Identity<T>();
 		
 		/* Definition of the grammar */
@@ -153,26 +153,26 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 		add_gate = 
 			(tok.identifier >> tok.op_add >> tok.identifier)
 			[ //std::cout << spi::_1 << val(" + ") << spi::_3 << std::endl,
-			  phx::bind(&GPAC<T>::addAddGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, spi::_3, false)]
+				phx::bind(&GPAC<T>::addAddGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, spi::_3, false, true)]
 		;
 		
 		prod_gate =
 			(tok.identifier >> tok.op_prod >> tok.identifier)
 			[ //std::cout << spi::_1 << val(" x ") << spi::_3 << std::endl,
-			  phx::bind(&GPAC<T>::addProductGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, spi::_3, false) ]
+				phx::bind(&GPAC<T>::addProductGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, spi::_3, false, true) ]
 		;
 		
 		int_gate =
 			(tok.op_int >> tok.identifier >> tok.d >> tok.lpar >> tok.identifier >> tok.rpar >> tok.vert >> value)
 			[ //std::cout << val("int ") << spi::_2 << val(" d( ") << spi::_5 << val(" ) | ") << spi::_8 << std::endl,
-			  phx::bind(&GPAC<T>::addIntGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_2, spi::_5, false),
+				phx::bind(&GPAC<T>::addIntGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_2, spi::_5, false, true),
 			  phx::bind(&GPAC<T>::setInitValue, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_8)]
 		;
 		
 		constant_gate =
 			(value)
 			[ //std::cout << spi::_1 << std::endl,
-			  phx::bind(&GPAC<T>::addConstantGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, false)]
+				phx::bind(&GPAC<T>::addConstantGate, phx::ref(circuits)[phx::ref(current_circuit)], phx::ref(current_gate), spi::_1, false, true)]
 		;
 		
 		/* Second way of defining circuits: arithmetic operations on user-defined and predefined circuits */
