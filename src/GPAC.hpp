@@ -155,6 +155,7 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new AddGate<T>(x,y));
+		ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -180,6 +181,7 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ProductGate<T>(x,y));
+		ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -210,6 +212,7 @@ public:
 		else {
 			gates[gate_name] = std::unique_ptr<Gate>(new IntGate<T>(x,y));
 		}
+		ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -234,6 +237,7 @@ public:
 		}
 		else
 			gates[gate_name] = std::unique_ptr<Gate>(new ConstantGate<T>(value));
+		ensureNewGateIdLargeEnough(gate_name);
 		return gate_name;
 	}
 	
@@ -1771,8 +1775,22 @@ protected:
 	
 	/// Returns a new unique gate number
 	unsigned getNewGateId() const {return ++new_gate_id;}
-	/// Returns a new unique gate name (number preceeded with an underscore)
+	
+    /// Returns a new unique gate name (number preceeded with an underscore)
 	std::string getNewGateName() const {return "_" + boost::lexical_cast<std::string>(++new_gate_id) ;}
+	
+	/// If `name` ends with _<n> with n an integer, ensure that all new gates have number larger than n
+	void ensureNewGateIdLargeEnough(std::string name) const {
+		int i = name.size()-1;
+		while (i >= 0 && '0' <= name[i] && name[i] <= '9')
+			--i;
+		if (i < 0 || static_cast<unsigned>(i) >= name.size()-1 || name[i] != '_')
+			return;
+		unsigned id = boost::lexical_cast<unsigned>(name.substr(i+1));
+		
+		if (id > new_gate_id)
+			new_gate_id = id;
+	}
 	
 	/// \brief Returns a AddGate pointer to the specified gate
 	/// \pre A gate named `gate_name` must exist in the circuit and must be an addition gate.
