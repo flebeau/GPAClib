@@ -190,7 +190,7 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Iterate, phx::ref(circuits)[spi::_1], spi::_3)]
 			| (tok.op_max >> tok.lpar >> expression >> tok.comma >> expression >> tok.rpar)
 			  [qi::_val = "_max_" + spi::_3 + "_" + spi::_5,
-			   phx::ref(circuits)[qi::_val] = phx::bind(&Max<T>, phx::ref(circuits)[spi::_3], phx::ref(circuits)[spi::_5], 0.05)]
+			   phx::ref(circuits)[qi::_val] = phx::bind(&Max<T>, phx::ref(circuits)[spi::_3], phx::ref(circuits)[spi::_5], 0.01)]
 			| (tok.op_select >> tok.lpar >> value >> tok.comma >> value >> tok.comma >> value >> tok.comma >> value >> tok.rpar)
 			  [qi::_val = "_select_" + phx::bind(&ToString<T>, spi::_3) + "_" + phx::bind(&ToString<T>, spi::_5) + "_" + phx::bind(&ToString<T>, spi::_7) + "_" + phx::bind(&ToString<T>, spi::_9),
 			   phx::ref(circuits)[qi::_val] = phx::bind(&Select<T>, spi::_3, spi::_5, 0.05, spi::_7, spi::_9)]
@@ -271,10 +271,16 @@ GPAC<T> LoadFromFile(std::string filename)
 		return GPAC<T>();
     }
 	
-	std::cerr << "=========================\n"
-			  << "Parsing of file " << filename << " successful!\n"
-			  << "Loaded circuit " << parser.getCircuit().Name() << std::endl
-			  << "=========================\n" << std::endl;
+	std::stringstream l1(""), l2(""), delim("");
+	l1 << "Parsing of file " << filename << " successful!";
+	l2 << "Loaded circuit " << parser.getCircuit().Name();
+	for (unsigned i = 0; i<std::max(l1.str().size(),l2.str().size()); ++i)
+		delim << '=';
+	
+	std::cerr << delim.str() << std::endl
+			  << l1.str() << std::endl
+			  << l2.str() << std::endl
+			  << delim.str() << std::endl << std::endl;
     
 	return parser.getCircuit();
 }
