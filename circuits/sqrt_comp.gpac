@@ -1,0 +1,9 @@
+Circuit Sqrt_Comp:
+	c0: 0
+	c1: -1
+	x: int c0 d(t) | 2
+	sq: out * out
+	sq2: sq * c1
+	s: x + sq2
+	out: int s d(t) | 0
+;

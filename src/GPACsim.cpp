@@ -8,6 +8,7 @@
 #include <memory>
 #include <map>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
@@ -23,9 +24,13 @@ int main(int argc, char *argv[]) {
 	std::string filename;
 	bool simulate = true, simplification = true, to_dot = false, to_code = false, to_latex = false;
 	bool finalization = true;
+	bool value_only = false;
 	double b = 5.;
 	double step = 0.001;
 	std::string output, dot_file, latex_file;
+	
+	std::cout << std::setprecision(10);
+	std::cerr << std::setprecision(10);
 	
 	/* Handle program options */
 	namespace po = boost::program_options;
@@ -39,6 +44,7 @@ int main(int argc, char *argv[]) {
 			("output,o", po::value<std::string>(&output), "Output (pdf) file of the simulation")
 			("sup,b", po::value<double>(&b), b_descr.c_str())
 			("step,s", po::value<double>(&step), step_descr.c_str())
+			("value-only", "Only output the final value of the circuit after the simulation")
 			("to-dot,d", po::value<std::string>(&dot_file)->implicit_value(""), "Generate a dot representation and export it in the specified file")
 			("to-latex,l", po::value<std::string>(&latex_file)->implicit_value(""), "Generate a latex code representing the circuit and export it in the specified file")
 			("to-code", "Prints the C++ representation of the circuit")
@@ -56,6 +62,8 @@ int main(int argc, char *argv[]) {
 			std::cerr << opt_descr << "\n";
 			return EXIT_SUCCESS;
 		}
+		if (vm.count("value-only"))
+			value_only = true;
 		if (vm.count("no-simulation"))
 			simulate = false;
 		if (vm.count("no-simplification"))
@@ -76,6 +84,10 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 	
+	if (value_only && !simulate) {
+		WarningMessage() << "cannot output the value if no simulation is executed.";
+		value_only = false;
+	}
 	if (!finalization && simulate) {
 		WarningMessage() << "cannot simulate a circuit that is not finalized -> simulation disabled.";
 		simulate = false;
@@ -118,10 +130,17 @@ int main(int argc, char *argv[]) {
 	else
 		std::cout << circuit << "\n";
 	
-	if (simulate)
-		circuit.SimulateGnuplot(0., b, step, output);
-	//circuit.SimulateDump(0., b, step);
-	
+	if (simulate) {
+		if (value_only) {
+			circuit.Simulate(0., b, step);
+			std::cout << "Value of " << circuit.Name() << " at t=" << b << ": " << circuit.OutputValue() << std::endl;
+		}
+		else {
+			circuit.SimulateGnuplot(0., b, step, output);
+			std::cerr << "Value of " << circuit.Name() << " at t=" << b << ": " << circuit.OutputValue() << std::endl;
+		}
+	}
+			
 	return 0;
 }
 

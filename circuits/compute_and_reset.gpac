@@ -1,0 +1,15 @@
+Circuit S = select(2,6,1,0);
+#Circuit S = (L2 @ (3.5 - t));
+Circuit T :
+	sel: S
+	exp: out * sel
+	T_c: -1
+	trig: sel + T_c
+	b1: out * out
+	b2: out * b1
+	T_c2: 200
+	b3: b2 * T_c2
+	branicky: trig * b3
+	der: exp + branicky
+	out: int der d(t) | 1
+;
