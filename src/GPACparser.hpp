@@ -45,14 +45,16 @@ struct GPACLexer : lex::lexer<Lexer>
 		, op_int ("int")
 		, op_max ("max")
 		, op_select("select")
+		, op_deriv("deriv")
 		, semicol (";")
 		, comma (',')
+		, prime ('\'')
 		, vert ("\\|")
 		, col (":")
 		, eq ('=')
 		, op_comp ('@')
 	{
-        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | op_max | op_select | col | semicol | comma | vert | eq | op_comp | identifier;
+        this->self = circuit | d | lpar | rpar | lbracket | rbracket | integer | value | op_add | op_sub | op_div | op_prod | op_int | op_max | op_select | op_deriv | col | semicol | comma | prime | vert | eq | op_comp | identifier;
         this->self("WS") = comment_line | white_space;
     }
 	lex::token_def<>            circuit, comment_line;
@@ -65,8 +67,8 @@ struct GPACLexer : lex::lexer<Lexer>
 	lex::token_def<unsigned>    integer;
 	lex::token_def<>            op_add, op_sub, op_div;
 	lex::token_def<>            op_prod;
-	lex::token_def<>            op_int, op_max, op_select;
-	lex::token_def<>            semicol, comma;
+	lex::token_def<>            op_int, op_max, op_select, op_deriv;
+	lex::token_def<>            semicol, comma, prime;
 	lex::token_def<>            vert;
 	lex::token_def<>            col;
 	lex::token_def<>            eq;
@@ -194,6 +196,12 @@ struct GPACParser : qi::grammar<Iterator, qi::in_state_skipper<Lexer> >
 			| (tok.op_select >> tok.lpar >> value >> tok.comma >> value >> tok.comma >> value >> tok.comma >> value >> tok.rpar)
 			  [qi::_val = "_select_" + phx::bind(&ToString<T>, spi::_3) + "_" + phx::bind(&ToString<T>, spi::_5) + "_" + phx::bind(&ToString<T>, spi::_7) + "_" + phx::bind(&ToString<T>, spi::_9),
 			   phx::ref(circuits)[qi::_val] = phx::bind(&Select<T>, spi::_3, spi::_5, 0.05, spi::_7, spi::_9)]
+			| (tok.op_deriv >> tok.lpar >> expression >> tok.comma >> tok.integer >> tok.rpar)
+			  [qi::_val = "_" + spi::_3 + "_der" + phx::bind(&ToString<unsigned>, spi::_5),
+			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Derivate, phx::ref(circuits)[spi::_3], spi::_5)]
+			| (tok.op_deriv >> tok.lpar >> expression >> tok.rpar)
+			  [qi::_val = "_" + spi::_3 + "_der",
+			   phx::ref(circuits)[qi::_val] = phx::bind(&GPAC<T>::Derivate, phx::ref(circuits)[spi::_3], 1)]
 			| (tok.identifier) [qi::_val = spi::_1]
 			| (value) [qi::_val = phx::bind(&ToString<T>, spi::_1),
 				           phx::ref(circuits)[qi::_val] = phx::bind(&GPAClib::Constant<T>, spi::_1),

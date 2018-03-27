@@ -95,6 +95,9 @@ int main(int argc, char *argv[]) {
 	
 	//GPAClib::GPAC<double> circuit = GracaImplementation();
 	GPAClib::GPAC<double> circuit = GPAClib::LoadFromFile<double>(filename);
+	if (circuit.Output() == "") {
+		exit(EXIT_FAILURE);
+	}
 	
     //GPAClib::GPAC<double> circuit = GPAClib::L2<double>(20. * GPAClib::Exp<double>());
 	//GPAClib::GPAC<double> circuit = 

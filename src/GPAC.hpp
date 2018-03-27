@@ -1202,17 +1202,23 @@ public:
 	}
 	/// \brief Recursive method used to compute derivative circuit
 	/// \return Name of the gate representing derivate of subcircuit (replacing input gate)
-	std::string DerivateGate(std::string gate_name) {
+	std::string DerivateGate(std::string gate_name, std::string const_gate0 = "", std::string const_gate1 = "") {
 		std::string res;
+		
+		if (const_gate0 == "")
+			const_gate0 = addConstantGate("", 0, false);
+		if (const_gate1 == "")
+			const_gate1 = addConstantGate("", 1, false);
+		
 		if (gate_name == "t")
-			res =  addConstantGate("", 1, false);
+			res =  const_gate1;
 		else if (isCombinationConstantGates(gate_name))
-			res =  addConstantGate("", 0, false);
+			res =  const_gate0;
 		else { 
 			const BinaryGate<T> *gate = asBinaryGate(gate_name);
 			if (isIntGate(gate_name)) {
 				if (gate->Y() != "t") {
-					CircuitErrorMessage() << "Can't compute derivate circuit of a circuit that is not normalize!";
+					CircuitErrorMessage() << "Can't compute derivate circuit of a circuit that is not normalized!";
 					exit(EXIT_FAILURE);
 				}
 				res =  gate->X();
@@ -1230,7 +1236,7 @@ public:
 				}
 				
 				if (const_gate != "") {
-					std::string deriv = DerivateGate(other_gate);
+					std::string deriv = DerivateGate(other_gate, const_gate0, const_gate1);
 					if (isAddGate(gate_name))
 						res = deriv;
 					else if (isProductGate(gate_name)) {
@@ -1238,8 +1244,8 @@ public:
 					}
 				}
 				else {				
-					std::string deriv_x = DerivateGate(gate->X());
-					std::string deriv_y = DerivateGate(gate->Y());
+					std::string deriv_x = DerivateGate(gate->X(), const_gate0, const_gate1);
+					std::string deriv_y = DerivateGate(gate->Y(), const_gate0, const_gate1);
 					if (isAddGate(gate_name)) {
 						res =  addAddGate("", deriv_x, deriv_y, false);
 					}
@@ -1255,13 +1261,19 @@ public:
 			output_gate = res;
 		return res;
 	}
-	/// \brief Returns the derivative of the circuit
-	GPAC<T> Derivate() const {
+	
+	/// \brief Returns the n-th derivative of the circuit
+	GPAC<T> Derivate(unsigned n = 1) const {
+		if (n == 0)
+			return *this;
 		GPAC<T> res(*this);
-		res.rename(res.Name() + "_der");
-		res.DerivateGate(res.Output());
+		res.rename(res.Name() + "_der" + std::to_string(n));
+		for (unsigned i = 0; i<n; ++i) {
+			res.DerivateGate(res.Output());
+			res.simplify();
+		}
 		return res;
-	}
+	} 
 	/// \brief Returns the circuit computing the inverse
 	GPAC<T> Inverse() const {
 		GPAC<T> res(*this);

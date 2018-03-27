@@ -16,9 +16,14 @@ cat "$1"
 echo
 mkdir -p results/
 build/GPACsim "${@:2}" --to-dot "results/${file}.dot" --to-latex "results/${file}_equation.tex" -o "results/${file}.pdf" "$1"
+
+if [ $? -ne 0 ]; then
+	exit
+fi
+
 dot -Tsvg "results/${file}.dot" -o "results/${file}.svg"&
 pdflatex "results/${file}_equation.tex" > /dev/null
 mv "${file}_equation.pdf" results/
 rm -f ${file}_equation.*
-#evince "results/${file}.pdf"&
+evince "results/${file}.pdf"&
 #inkscape "results/${file}.svg"

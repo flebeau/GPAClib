@@ -1,0 +1,1 @@
+Circuit Der = deriv((Exp @ Tanh),2);
